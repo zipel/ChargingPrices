@@ -2,6 +2,10 @@
 
 A web app with a map of public EV charging stations in Denmark that shows each operator's current price per kWh. The data comes from the feeds operators publish under EU AFIR Article 20. Read `README.md` and `docs/data-sources.md` at the start of a session.
 
+The operating rules in `AGENT_RULES.md` apply to every session. They're imported here so Claude Code always loads them:
+
+@AGENT_RULES.md
+
 Owner: Dimos Zikos (GitHub `zipel`). Dimos works in VS Code with Claude Code, on a Mac and a Windows laptop. The repo is public and part of Dimos's portfolio.
 
 ## Working agreement
