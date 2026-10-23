@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type Meta, type SiteDetail, type SiteSummary, fetchMeta, fetchSite, fetchSites } from './api'
 import { FilterPanel } from './components/FilterPanel'
 import { MapView } from './components/MapView'
@@ -10,18 +10,26 @@ import { type Bounds, DEFAULT_FILTERS, type Filters, type MapSite, cheapestIn, t
 const REFRESH_MS = 2 * 60 * 1000
 const SMALL_SCREEN = '(max-width: 720px)'
 
+/** The selected station lives in the URL (#site=...), so a link opens the same station. */
+function siteFromUrl(): string | null {
+  const match = window.location.hash.match(/site=([^&]+)/)
+  return match ? decodeURIComponent(match[1]) : null
+}
+
 export default function App() {
   const [sites, setSites] = useState<SiteSummary[]>([])
   const [meta, setMeta] = useState<Meta | null>(null)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [bounds, setBounds] = useState<Bounds | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(siteFromUrl)
   const [detail, setDetail] = useState<SiteDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ lon: number; lat: number; nonce: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(() => window.matchMedia(SMALL_SCREEN).matches)
   const [refreshCount, setRefreshCount] = useState(0)
+  // A station opened from a link gets centred once, as soon as the sites have loaded
+  const siteToCentre = useRef(siteFromUrl())
 
   // Load all sites and the meta data, then keep them fresh. Poll faster while the back end is still loading.
   const stillLoading = meta?.loading ?? true
@@ -32,6 +40,11 @@ export default function App() {
         setSites(sitesResponse.sites)
         setMeta(metaResponse)
         setError(null)
+        const linked = sitesResponse.sites.find((s) => s.id === siteToCentre.current)
+        if (linked) {
+          siteToCentre.current = null
+          setFocus({ lon: linked.lon, lat: linked.lat, nonce: Date.now() })
+        }
       })
       .catch((e: unknown) => {
         if (!controller.signal.aborted) setError(`Can’t reach the server (${e instanceof Error ? e.message : 'unknown error'}). Is the back end running?`)
@@ -58,12 +71,29 @@ export default function App() {
     return () => controller.abort()
   }, [selectedId, refreshCount])
 
+  // Keep the URL in step with the selection, without adding history entries
+  useEffect(() => {
+    const url = window.location.pathname + window.location.search + (selectedId ? `#site=${encodeURIComponent(selectedId)}` : '')
+    window.history.replaceState(null, '', url)
+  }, [selectedId])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelectedId(null)
     }
+    // A link to another station on the same page changes only the hash, without reloading
+    const onHashChange = () => {
+      const id = siteFromUrl()
+      setSelectedId(id)
+      siteToCentre.current = id
+      setRefreshCount((n) => n + 1)
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('hashchange', onHashChange)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('hashchange', onHashChange)
+    }
   }, [])
 
   const mapSites = useMemo(() => toMapSites(sites, filters), [sites, filters])
