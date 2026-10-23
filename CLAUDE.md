@@ -22,24 +22,45 @@ Owner: Dimos Zikos (GitHub `zipel`). Dimos works in VS Code with Claude Code, on
 
 ## Stack
 
-Java 25, Spring Boot 4, Gradle · PostgreSQL + PostGIS, Flyway · JUnit 5, Testcontainers · React, TypeScript, Vite, MapLibre GL JS · Docker Compose · GitHub Actions. The reasons are in `docs/decisions/0001-stack.md`.
+Java 25, Spring Boot 4.1, Gradle (Kotlin DSL) · in-memory store for phase 1 (PostgreSQL + PostGIS later) · JUnit 5, AssertJ · React 19, TypeScript, Vite, MapLibre GL JS with OpenFreeMap tiles · Vitest · GitHub Actions. The reasons are in `docs/decisions/`.
 
-## Planned layout
+## Layout
 
 ```
-backend/              Spring Boot app: feed adapters, common model, REST API
-web/                  React app: map and station panel
+backend/              Spring Boot app
+  feed/spirii/        fetches Spirii's public AFIR feed per operator (cpoId), with ETags
+  feed/datex/         maps DATEX II JSON to the domain model
+  domain/             Site, ChargePoint, Tariff (price at a given local time), SpeedClass
+  store/              SiteStore: the latest snapshot, in memory
+  api/                REST controller and the JSON views
+web/                  React app
+  src/components/     MapView, FilterPanel, StationPanel, PriceChart
+  src/lib/            price colours and formatting, filtering
 docs/                 data sources, decisions (ADRs)
-docker-compose.yml    PostGIS plus both apps
 ```
+
+## Commands
+
+| What | Where | Command |
+|---|---|---|
+| Run the API on :8080 | `backend/` | `./gradlew bootRun` (Windows: `gradlew.bat bootRun`) |
+| Back-end tests | `backend/` | `./gradlew test` |
+| Run the UI on :5173 | `web/` | `npm install`, then `npm run dev` |
+| Front-end tests, lint, build | `web/` | `npm test`, `npm run lint`, `npm run build` |
+
+The UI needs the API running. Vite forwards `/api` to `localhost:8080`.
 
 ## Domain notes
 
 - **DATEX II v3** is the AFIR format. Static data (sites, stations, charge points, connectors, tariffs) and dynamic data (status, current prices) come from separate endpoints.
 - **EVSE ID** (e.g. `DK.SPI.Z507*1`) is the stable key for a charge point across feeds.
-- **Price** = the ad hoc price, VAT included, in DKK. Spirii publishes it in 15-minute slots. A rate can also have per-minute or flat (start fee) parts.
-- The first source is Spirii's public feed: `https://api.spirii.com/v2/afir/energy-infrastructure-tables` and `.../energy-infrastructure-statuses`, with `countryIsos=DK`. No key needed.
+- **Price** = the ad hoc price, VAT included, in DKK. See the Javadoc on `Tariff` and `TariffParser` for how the time windows work.
+- **Spirii's feed** returns at most 1,000 sites per request, so it's fetched one operator (`cpoId`) at a time. The list is in `application.yml`.
 
-## Commands
+## Gotchas (learned the hard way)
 
-Fill this in once the projects exist.
+- **Spring Boot 4 uses Jackson 3.** Packages are `tools.jackson.databind.*`, not `com.fasterxml.jackson.databind.*`, and `JsonNode` uses `isString()` and `stringValue()`.
+- **Spring Boot 4 has no `RestClient.Builder` bean** without the `spring-boot-starter-restclient` module. `SpiriiClient` builds its own with `RestClient.builder()`.
+- **Spirii always gzips**, even without `Accept-Encoding`. `SpiriiClient` checks the gzip magic bytes.
+- **MapLibre 6 needs its worker URL set** (`setWorkerUrl` with a `?url` import in `MapView.tsx`), or the map stays blank in production builds.
+- **MapLibre's CSS sets `.maplibregl-map { position: relative }`.** The full-screen rule for the map container must be more specific (`.app > .map`), or the map gets zero height.
