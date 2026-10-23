@@ -39,6 +39,7 @@ export function StationPanel({ detail, loading, error, thresholds, preferredSpee
             <h2>{siteTitle(detail)}</h2>
             <p className="muted">{[detail.street, [detail.postcode, detail.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</p>
             <div className="badges">
+              {detail.restricted && <span className="badge warning">Looks private</span>}
               {detail.openAllHours && <span className="badge">Open 24/7</span>}
               <span className="badge">{detail.chargePoints.length} charge point{detail.chargePoints.length === 1 ? '' : 's'}</span>
             </div>
@@ -105,7 +106,7 @@ export function StationPanel({ detail, loading, error, thresholds, preferredSpee
             <a className="button" href={`https://www.google.com/maps/dir/?api=1&destination=${detail.lat},${detail.lon}`} target="_blank" rel="noreferrer">
               Directions
             </a>
-            {detail.statusUpdated && <span className="muted small">Status {relativeTime(detail.statusUpdated)}</span>}
+            {detail.statusUpdated && <span className="muted small">Last status change {relativeTime(detail.statusUpdated)}</span>}
           </section>
 
           <p className="footnote">
@@ -178,9 +179,9 @@ function feesOf(point: ChargePointView): string[] {
 
 function relativeTime(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
-  if (minutes < 1) return 'updated just now'
-  if (minutes < 60) return `updated ${minutes} min ago`
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
   const hours = Math.round(minutes / 60)
-  if (hours < 48) return `updated ${hours} h ago`
-  return `updated ${Math.round(hours / 24)} days ago`
+  if (hours < 48) return `${hours} h ago`
+  return `${Math.round(hours / 24)} days ago`
 }

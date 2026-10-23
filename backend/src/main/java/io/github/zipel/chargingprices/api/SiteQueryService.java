@@ -16,6 +16,7 @@ import io.github.zipel.chargingprices.domain.Availability;
 import io.github.zipel.chargingprices.domain.ChargePoint;
 import io.github.zipel.chargingprices.domain.Denmark;
 import io.github.zipel.chargingprices.domain.Site;
+import io.github.zipel.chargingprices.domain.SiteAccess;
 import io.github.zipel.chargingprices.domain.SpeedClass;
 import io.github.zipel.chargingprices.domain.Tariff;
 import io.github.zipel.chargingprices.feed.FeedStatus;
@@ -103,6 +104,7 @@ public class SiteQueryService {
                 site.longitude(),
                 site.street(),
                 site.city(),
+                SiteAccess.looksRestricted(site.name()),
                 cheapest(site.chargePoints(), now),
                 countAvailable(site.chargePoints()),
                 site.chargePoints().size(),
@@ -130,7 +132,8 @@ public class SiteQueryService {
                 .orElse(null);
 
         return new SiteDetail(site.id(), site.name(), site.operator(), site.latitude(), site.longitude(),
-                site.street(), site.postcode(), site.city(), site.openAllHours(), site.source(),
+                site.street(), site.postcode(), site.city(), site.openAllHours(),
+                SiteAccess.looksRestricted(site.name()), site.source(),
                 cheapest(site.chargePoints(), now), points, curves, statusUpdated);
     }
 

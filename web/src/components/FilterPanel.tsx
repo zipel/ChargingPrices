@@ -73,6 +73,10 @@ export function FilterPanel({ filters, onFiltersChange, meta, visibleCount, thre
             <input type="checkbox" checked={filters.includeUnpriced} onChange={(e) => set({ includeUnpriced: e.target.checked })} />
             Include stations without a price
           </label>
+          <label className="check" title="Sites whose name says they're private, such as housing associations or company car parks">
+            <input type="checkbox" checked={filters.includeRestricted} onChange={(e) => set({ includeRestricted: e.target.checked })} />
+            Include private chargers
+          </label>
         </div>
 
         <div className="legend" aria-label="Price colours">

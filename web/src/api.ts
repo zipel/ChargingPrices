@@ -19,6 +19,8 @@ export interface SiteSummary {
   lon: number
   street: string | null
   city: string | null
+  /** The name says the site is private, e.g. "(Privat)" or "Kun for beboere". A guess, not a fact. */
+  restricted: boolean
   priceNow: number | null
   available: number
   total: number
@@ -62,6 +64,7 @@ export interface SiteDetail {
   postcode: string | null
   city: string | null
   openAllHours: boolean
+  restricted: boolean
   source: string
   priceNow: number | null
   chargePoints: ChargePointView[]

@@ -11,6 +11,7 @@ function site(id: string, overrides: Partial<SiteSummary> = {}): SiteSummary {
     lon: 12.57,
     street: null,
     city: 'København',
+    restricted: false,
     priceNow: 3,
     available: 1,
     total: 2,
@@ -42,6 +43,12 @@ describe('toMapSites', () => {
     const unpriced = site('b', { priceNow: null })
     expect(toMapSites([unpriced], DEFAULT_FILTERS)).toHaveLength(0)
     expect(toMapSites([unpriced], { ...DEFAULT_FILTERS, includeUnpriced: true })).toHaveLength(1)
+  })
+
+  it('hides sites that look private unless asked', () => {
+    const housing = site('p', { name: 'Taastrupgaard 17 (Privat)', restricted: true })
+    expect(toMapSites([housing], DEFAULT_FILTERS)).toHaveLength(0)
+    expect(toMapSites([housing], { ...DEFAULT_FILTERS, includeRestricted: true })).toHaveLength(1)
   })
 
   it('filters by operator', () => {

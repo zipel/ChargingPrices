@@ -375,6 +375,11 @@ input {
   color: var(--muted);
 }
 
+.badge.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .price-now {
   display: flex;
   align-items: center;

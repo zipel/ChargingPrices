@@ -9,6 +9,7 @@ export interface Filters {
   availableOnly: boolean
   operator: string
   includeUnpriced: boolean
+  includeRestricted: boolean
 }
 
 export const DEFAULT_FILTERS: Filters = {
@@ -16,6 +17,7 @@ export const DEFAULT_FILTERS: Filters = {
   availableOnly: false,
   operator: '',
   includeUnpriced: false,
+  includeRestricted: false,
 }
 
 /** A site as the map shows it: the price and availability for the selected speed. */
@@ -31,6 +33,7 @@ export function toMapSites(sites: SiteSummary[], filters: Filters): MapSite[] {
   const result: MapSite[] = []
   for (const site of sites) {
     if (filters.operator && site.operator !== filters.operator) continue
+    if (!filters.includeRestricted && site.restricted) continue
 
     let entry: MapSite
     if (filters.speed === 'ALL') {
