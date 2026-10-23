@@ -26,3 +26,7 @@ feeds:
     statuses-refresh: PT2M
     tables-refresh: PT6H
     pause-between-requests: PT0.25S
+
+places:
+  # OpenStreetMap's free geocoder. Usage policy: identify the app, max 1 request/second, cache results.
+  nominatim-url: https://nominatim.openstreetmap.org

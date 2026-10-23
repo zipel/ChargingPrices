@@ -1,6 +1,7 @@
-import type { Meta } from '../api'
+import type { Meta, Place } from '../api'
 import { BAND_COLOURS, NO_PRICE_COLOUR, bandLabels, colourOf, formatPrice } from '../lib/price'
 import { SPEED_HINTS, SPEED_LABELS, type Filters, type MapSite, type SpeedFilter, siteTitle } from '../lib/sites'
+import { PlaceSearch } from './PlaceSearch'
 
 const SPEEDS: SpeedFilter[] = ['ALL', 'STANDARD', 'FAST', 'ULTRA']
 
@@ -13,11 +14,12 @@ interface Props {
   cheapest: MapSite[]
   selectedId: string | null
   onPick: (site: MapSite) => void
+  onPlace: (place: Place) => void
   collapsed: boolean
   onToggle: () => void
 }
 
-export function FilterPanel({ filters, onFiltersChange, meta, visibleCount, thresholds, cheapest, selectedId, onPick, collapsed, onToggle }: Props) {
+export function FilterPanel({ filters, onFiltersChange, meta, visibleCount, thresholds, cheapest, selectedId, onPick, onPlace, collapsed, onToggle }: Props) {
   const set = (change: Partial<Filters>) => onFiltersChange({ ...filters, ...change })
   const lastRefresh = meta?.sources[0]?.lastRefresh
 
@@ -35,6 +37,8 @@ export function FilterPanel({ filters, onFiltersChange, meta, visibleCount, thre
           </svg>
         </button>
       </header>
+
+      <PlaceSearch onPick={onPlace} />
 
       <div className="filters-body">
         <div className="segmented" role="radiogroup" aria-label="Charging speed">

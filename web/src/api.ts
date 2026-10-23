@@ -82,6 +82,15 @@ export interface Meta {
   sources: { name: string; url: string; licence: string; lastRefresh: string | null }[]
 }
 
+/** A town, street or address. bbox is [west, south, east, north] when the place has an area. */
+export interface Place {
+  name: string
+  detail: string
+  lat: number
+  lon: number
+  bbox: [number, number, number, number] | null
+}
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, { signal })
   if (!response.ok) {
@@ -93,3 +102,4 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 export const fetchSites = (signal?: AbortSignal) => getJson<SitesResponse>('/api/sites', signal)
 export const fetchSite = (id: string, signal?: AbortSignal) => getJson<SiteDetail>(`/api/sites/${encodeURIComponent(id)}`, signal)
 export const fetchMeta = (signal?: AbortSignal) => getJson<Meta>('/api/meta', signal)
+export const fetchPlaces = (query: string) => getJson<Place[]>(`/api/places?q=${encodeURIComponent(query)}`)

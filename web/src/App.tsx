@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { type Meta, type SiteDetail, type SiteSummary, fetchMeta, fetchSite, fetchSites } from './api'
+import { type Meta, type Place, type SiteDetail, type SiteSummary, fetchMeta, fetchSite, fetchSites } from './api'
 import { FilterPanel } from './components/FilterPanel'
-import { MapView } from './components/MapView'
+import { type MapFocus, MapView } from './components/MapView'
 import { StationPanel } from './components/StationPanel'
 import { bandThresholds } from './lib/price'
 import { type Bounds, DEFAULT_FILTERS, type Filters, type MapSite, cheaperNearby, cheapestIn, toMapSites } from './lib/sites'
@@ -24,7 +24,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(siteFromUrl)
   const [detail, setDetail] = useState<SiteDetail | null>(null)
   const [detailError, setDetailError] = useState<string | null>(null)
-  const [focus, setFocus] = useState<{ lon: number; lat: number; nonce: number } | null>(null)
+  const [focus, setFocus] = useState<MapFocus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(() => window.matchMedia(SMALL_SCREEN).matches)
   const [refreshCount, setRefreshCount] = useState(0)
@@ -121,6 +121,11 @@ export default function App() {
     [select],
   )
 
+  const goToPlace = useCallback((place: Place) => {
+    setFocus({ lon: place.lon, lat: place.lat, bbox: place.bbox, pin: true, nonce: Date.now() })
+    if (window.matchMedia(SMALL_SCREEN).matches) setCollapsed(true)
+  }, [])
+
   return (
     <div className={selectedId ? 'app has-station' : 'app'}>
       <MapView sites={mapSites} thresholds={thresholds} selectedId={selectedId} focus={focus} onSelect={select} onBoundsChange={setBounds} />
@@ -133,6 +138,7 @@ export default function App() {
         cheapest={cheapest}
         selectedId={selectedId}
         onPick={pick}
+        onPlace={goToPlace}
         collapsed={collapsed}
         onToggle={() => setCollapsed((c) => !c)}
       />

@@ -20,11 +20,22 @@ const LABEL_ZOOM = 11
 /** Marks "no usable price" in cluster aggregates, which can't hold null. */
 const NO_PRICE = 999
 
+/** Where to move the map. A new nonce moves it again, even to the same place. */
+export interface MapFocus {
+  lon: number
+  lat: number
+  nonce: number
+  /** Fit this area ([west, south, east, north]) instead of zooming to a point */
+  bbox?: [number, number, number, number] | null
+  /** Drop a pin, for a searched place */
+  pin?: boolean
+}
+
 interface Props {
   sites: MapSite[]
   thresholds: number[]
   selectedId: string | null
-  focus: { lon: number; lat: number; nonce: number } | null
+  focus: MapFocus | null
   onSelect: (id: string | null) => void
   onBoundsChange: (bounds: Bounds) => void
 }
@@ -32,6 +43,7 @@ interface Props {
 export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoundsChange }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const pinRef = useRef<maplibregl.Marker | null>(null)
   const loaded = useRef(false)
   // Callbacks and data change on every render; the map's event handlers read the latest through refs
   const handlers = useRef({ onSelect, onBoundsChange })
@@ -168,12 +180,22 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
     map.setPaintProperty('clusters', 'circle-color', clusterColour(thresholds))
   }, [sites, thresholds, selectedId])
 
-  // Centre on a site picked from the list
+  // Move to a site picked from a list, or to a searched place
   useEffect(() => {
     const map = mapRef.current
     if (!map || !focus) return
-    map.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 13.5), duration: 800, padding: visibleAreaPadding() })
-  }, [focus])
+    const padding = visibleAreaPadding(selectedId != null)
+    if (focus.bbox) {
+      const [west, south, east, north] = focus.bbox
+      map.fitBounds([[west, south], [east, north]], { padding, maxZoom: 14, duration: 800 })
+    } else {
+      map.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 13.5), duration: 800, padding })
+    }
+    if (focus.pin) {
+      pinRef.current ??= new maplibregl.Marker({ color: SELECTED_COLOUR, scale: 0.8 })
+      pinRef.current.setLngLat([focus.lon, focus.lat]).addTo(map)
+    }
+  }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps -- move only when the focus changes
 
   return <div ref={container} className="map" aria-label="Map of charging stations" />
 }
@@ -213,13 +235,13 @@ function clusterColour(thresholds: number[]): ExpressionSpecification {
   ]
 }
 
-/** Keeps a focused site out from under the panels: the side panels on wide screens, the bottom sheet on phones. */
-function visibleAreaPadding() {
+/** Keeps the focus out from under the panels: the side panels on wide screens, the bottom sheet on phones. */
+function visibleAreaPadding(stationOpen: boolean) {
   const { innerWidth: width, innerHeight: height } = window
   if (width > 720) {
-    return { top: 0, bottom: 0, left: 372, right: 412 }
+    return { top: 40, bottom: 40, left: 380, right: stationOpen ? 420 : 40 }
   }
-  return { top: 80, bottom: Math.round(height * 0.62), left: 0, right: 0 }
+  return { top: 90, bottom: stationOpen ? Math.round(height * 0.62) : 40, left: 16, right: 16 }
 }
 
 function featureId(features: MapGeoJSONFeature[] | undefined): string | null {
