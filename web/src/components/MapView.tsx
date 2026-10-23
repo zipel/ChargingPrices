@@ -2,12 +2,17 @@ import type { FeatureCollection, Point } from 'geojson'
 import * as maplibregl from 'maplibre-gl'
 import type { ExpressionSpecification, GeoJSONSource, MapGeoJSONFeature } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
+// MapLibre parses map tiles in a web worker. Importing the worker file with ?url makes Vite copy it into
+// the build and gives its address, which works the same in development and production.
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef } from 'react'
 import type { Bounds, MapSite } from '../lib/sites'
 import { BAND_COLOURS, NO_PRICE_COLOUR, bandOf, formatPrice } from '../lib/price'
 
 // Free vector tiles based on OpenStreetMap, no API key needed (see docs/decisions/0004-map-tiles.md)
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
+maplibregl.setWorkerUrl(workerUrl)
+
 const DENMARK_BOUNDS: [[number, number], [number, number]] = [[7.9, 54.5], [15.3, 57.8]]
 const SELECTED_COLOUR = '#0f172a'
 /** Above this zoom, sites show as price labels instead of dots. */

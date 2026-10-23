@@ -11,8 +11,4 @@ export default defineConfig({
       '/api': 'http://localhost:8080',
     },
   },
-  optimizeDeps: {
-    // MapLibre 6 loads its web worker from a file next to its own module. Pre-bundling moves the module and breaks that path.
-    exclude: ['maplibre-gl'],
-  },
 })
