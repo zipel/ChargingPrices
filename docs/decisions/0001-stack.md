@@ -1,6 +1,6 @@
 # 1. Stack
 
-- **Status:** accepted
+- **Status:** accepted. The database part is on hold for phase 1, see [0003](0003-in-memory-snapshot.md).
 - **Date:** 2026-10-23
 
 ## Context

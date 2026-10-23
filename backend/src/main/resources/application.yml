@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: chargingprices
+
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json
+    min-response-size: 2KB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+feeds:
+  spirii:
+    enabled: true
+    base-url: https://api.spirii.com
+    country: DK
+    # Operators with Danish sites in Spirii's feed (found 2026-10-23, see docs/data-sources.md).
+    # 17 is "Test CPO" and is left out on purpose.
+    cpo-ids: [1, 4, 7, 8, 10, 16, 20, 25, 36, 37, 44, 47, 50, 56, 57, 59, 83, 84, 90, 99, 106, 140]
+    statuses-refresh: PT2M
+    tables-refresh: PT6H
+    pause-between-requests: PT0.25S
