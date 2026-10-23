@@ -172,9 +172,23 @@ function feesOf(point: ChargePointView): string[] {
   if (point.startFee != null && point.startFee > 0) fees.push(`Start fee ${formatPrice(point.startFee)} kr`)
   for (const fee of point.minuteFees) {
     const after = fee.fromMinute > 0 ? ` after ${fee.fromMinute % 60 === 0 ? `${fee.fromMinute / 60} h` : `${fee.fromMinute} min`}` : ''
-    fees.push(`${formatPrice(fee.perMinute)} kr/min${after}`)
+    const days = daysLabel(fee.days)
+    const hours = fee.from && fee.until ? `${fee.from}–${fee.until}` : ''
+    const when = [days, hours].filter(Boolean).join(' ')
+    fees.push(`${formatPrice(fee.perMinute)} kr/min${after}${when ? ` (${when})` : ''}`)
   }
   return fees
+}
+
+const WEEKDAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY']
+const WEEKEND = ['SATURDAY', 'SUNDAY']
+
+function daysLabel(days: string[]): string {
+  if (days.length === 0 || days.length === 7) return ''
+  const same = (list: string[]) => list.length === days.length && list.every((d) => days.includes(d))
+  if (same(WEEKDAYS)) return 'Mon–Fri'
+  if (same(WEEKEND)) return 'Sat–Sun'
+  return days.map((d) => d.charAt(0) + d.slice(1, 3).toLowerCase()).join(', ')
 }
 
 function relativeTime(iso: string): string {

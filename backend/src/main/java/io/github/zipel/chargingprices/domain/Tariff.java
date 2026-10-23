@@ -1,6 +1,7 @@
 package io.github.zipel.chargingprices.domain;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,8 +52,16 @@ public record Tariff(
         }
     }
 
-    /** A fee per minute that starts after {@code fromMinute} minutes, typically to stop cars blocking a charger. */
-    public record MinuteFee(BigDecimal perMinute, int fromMinute) {
+    /**
+     * A fee per minute that starts after {@code fromMinute} minutes, typically to stop cars blocking a charger.
+     * It may only apply between two times of day ({@code startMinute}, {@code endMinute}, null for all day)
+     * and on some days ({@code days}, empty for every day).
+     */
+    public record MinuteFee(BigDecimal perMinute, int fromMinute, Integer startMinute, Integer endMinute, List<DayOfWeek> days) {
+
+        public MinuteFee {
+            days = List.copyOf(days);
+        }
     }
 
     /** One point on a price curve. */

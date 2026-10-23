@@ -69,7 +69,8 @@ public final class SiteViews {
     public record ConnectorView(String type, String label, Double maxPowerKw) {
     }
 
-    public record MinuteFeeView(BigDecimal perMinute, int fromMinute) {
+    /** {@code from} and {@code until} are local times such as "06:00", or null for all day. {@code days} is empty for every day. */
+    public record MinuteFeeView(BigDecimal perMinute, int fromMinute, String from, String until, List<String> days) {
     }
 
     /** The cheapest price per 15-minute slot over the next 24 hours, for one speed class. */

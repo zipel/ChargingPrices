@@ -41,7 +41,8 @@ export interface ChargePointView {
   availability: Availability
   priceNow: number | null
   startFee: number | null
-  minuteFees: { perMinute: number; fromMinute: number }[]
+  /** from/until are local times like "06:00", null for all day; days is empty for every day */
+  minuteFees: { perMinute: number; fromMinute: number; from: string | null; until: string | null; days: string[] }[]
 }
 
 export interface PricePoint {

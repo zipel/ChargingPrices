@@ -148,7 +148,17 @@ public class SiteQueryService {
                 point.availability(),
                 tariff == null ? null : tariff.priceAt(now).orElse(null),
                 tariff == null ? null : tariff.startFee(),
-                tariff == null ? List.of() : tariff.minuteFees().stream().map(f -> new MinuteFeeView(f.perMinute(), f.fromMinute())).toList());
+                tariff == null ? List.of() : tariff.minuteFees().stream().map(SiteQueryService::minuteFeeView).toList());
+    }
+
+    private static MinuteFeeView minuteFeeView(Tariff.MinuteFee fee) {
+        return new MinuteFeeView(fee.perMinute(), fee.fromMinute(), clock(fee.startMinute()), clock(fee.endMinute()),
+                fee.days().stream().map(Enum::name).toList());
+    }
+
+    /** 360 becomes "06:00". */
+    private static String clock(Integer minuteOfDay) {
+        return minuteOfDay == null ? null : String.format("%02d:%02d", minuteOfDay / 60, minuteOfDay % 60);
     }
 
     /** For each 15-minute slot, the lowest price among the charge points. */

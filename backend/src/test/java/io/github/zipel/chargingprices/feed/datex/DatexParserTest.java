@@ -11,6 +11,7 @@ import io.github.zipel.chargingprices.feed.datex.DatexParser.StatusUpdate;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,10 @@ class DatexParserTest {
         assertThat(tariff.minuteFees()).singleElement().satisfies(fee -> {
             assertThat(fee.perMinute()).isEqualByComparingTo("0.25");
             assertThat(fee.fromMinute()).isEqualTo(240);
+            // Only on weekdays between 06:00 and 17:00
+            assertThat(fee.startMinute()).isEqualTo(6 * 60);
+            assertThat(fee.endMinute()).isEqualTo(17 * 60);
+            assertThat(fee.days()).containsExactly(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY);
         });
     }
 

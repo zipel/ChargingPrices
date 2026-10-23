@@ -8,8 +8,11 @@ import io.github.zipel.chargingprices.domain.Tariff.MinuteFee;
 import io.github.zipel.chargingprices.domain.Tariff.PeriodPrice;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.List;
 import tools.jackson.databind.JsonNode;
 
@@ -57,10 +60,7 @@ final class TariffParser {
                     }
                 }
                 case "flatRate" -> startFee = value;
-                case "pricePerMinute" -> {
-                    Double fromMinute = number(price.path("timeBasedApplicability").path("fromMinute"));
-                    minuteFees.add(new MinuteFee(value, fromMinute == null ? 0 : fromMinute.intValue()));
-                }
+                case "pricePerMinute" -> minuteFees.add(minuteFee(price, value));
                 default -> {
                     // Other price types (e.g. per hour) aren't used by Danish feeds yet
                 }
@@ -69,12 +69,46 @@ final class TariffParser {
         return new Tariff(periodPrices, fallback, startFee, minuteFees, currency == null ? "DKK" : currency);
     }
 
+    /** A per-minute fee, with the time of day and the weekdays it applies to, when the feed gives them. */
+    private static MinuteFee minuteFee(JsonNode price, BigDecimal value) {
+        Double fromMinute = number(price.path("timeBasedApplicability").path("fromMinute"));
+        Integer start = null;
+        Integer end = null;
+        List<DayOfWeek> days = new ArrayList<>();
+        for (JsonNode validPeriod : price.path("overallPeriod").path("validPeriod")) {
+            for (JsonNode timeOfDay : validPeriod.path("recurringTimePeriodOfDay")) {
+                start = minuteOfDay(text(timeOfDay.path("startTimeOfPeriod")));
+                end = minuteOfDay(text(timeOfDay.path("endTimeOfPeriod")));
+                break;
+            }
+            for (JsonNode dayPeriod : validPeriod.path("recurringDayWeekMonthPeriod")) {
+                for (JsonNode day : dayPeriod.path("comDayWeekMonth").path("applicableDay")) {
+                    dayOfWeek(Json.enumValue(day)).ifPresent(days::add);
+                }
+            }
+            break;
+        }
+        return new MinuteFee(value, fromMinute == null ? 0 : fromMinute.intValue(), start, end, days);
+    }
+
+    private static Optional<DayOfWeek> dayOfWeek(String name) {
+        try {
+            return Optional.of(DayOfWeek.valueOf(name.toUpperCase(Locale.ROOT)));
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
     private static BigDecimal priceWithVat(JsonNode price) {
         Double raw = number(price.path("value"));
         if (raw == null) {
             return null;
         }
         BigDecimal value = BigDecimal.valueOf(raw);
+        if (value.scale() > 4) {
+            // The feed has floating-point noise such as 0.030000000000000002
+            value = value.setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
+        }
         Double taxRate = number(price.path("taxRate"));
         boolean taxIncluded = price.path("taxIncluded").asBoolean(true);
         if (!taxIncluded && taxRate != null && taxRate > 0) {
