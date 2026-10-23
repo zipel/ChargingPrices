@@ -48,11 +48,11 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
       style: MAP_STYLE,
       bounds: DENMARK_BOUNDS,
       // On wide screens the filter panel covers the left side, so keep Denmark clear of it
-      fitBoundsOptions: { padding: window.innerWidth > 720 ? { top: 32, bottom: 32, left: 380, right: 32 } : 16 },
+      fitBoundsOptions: { padding: window.innerWidth > 720 ? { top: 32, bottom: 32, left: 380, right: 32 } : { top: 90, bottom: 40, left: 16, right: 16 } },
       attributionControl: false,
     })
     mapRef.current = map
-    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Prices: operators’ AFIR feeds via Spirii' }), 'bottom-right')
+    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Prices: Spirii AFIR feed' }), 'bottom-right')
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
     map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, fitBoundsOptions: { maxZoom: 13 } }), 'bottom-right')
 
@@ -172,7 +172,7 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
   useEffect(() => {
     const map = mapRef.current
     if (!map || !focus) return
-    map.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 13.5), duration: 800 })
+    map.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 13.5), duration: 800, padding: visibleAreaPadding() })
   }, [focus])
 
   return <div ref={container} className="map" aria-label="Map of charging stations" />
@@ -211,6 +211,15 @@ function clusterColour(thresholds: number[]): ExpressionSpecification {
     NO_PRICE_COLOUR,
     ['step', ['get', 'minPrice'], BAND_COLOURS[0], thresholds[0], BAND_COLOURS[1], thresholds[1], BAND_COLOURS[2], thresholds[2], BAND_COLOURS[3], thresholds[3], BAND_COLOURS[4]],
   ]
+}
+
+/** Keeps a focused site out from under the panels: the side panels on wide screens, the bottom sheet on phones. */
+function visibleAreaPadding() {
+  const { innerWidth: width, innerHeight: height } = window
+  if (width > 720) {
+    return { top: 0, bottom: 0, left: 372, right: 412 }
+  }
+  return { top: 80, bottom: Math.round(height * 0.62), left: 0, right: 0 }
 }
 
 function featureId(features: MapGeoJSONFeature[] | undefined): string | null {
