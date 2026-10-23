@@ -4,7 +4,7 @@ import { FilterPanel } from './components/FilterPanel'
 import { MapView } from './components/MapView'
 import { StationPanel } from './components/StationPanel'
 import { bandThresholds } from './lib/price'
-import { type Bounds, DEFAULT_FILTERS, type Filters, type MapSite, cheapestIn, toMapSites } from './lib/sites'
+import { type Bounds, DEFAULT_FILTERS, type Filters, type MapSite, cheaperNearby, cheapestIn, toMapSites } from './lib/sites'
 
 /** The back end refreshes the feeds every 2 minutes, so there's no point asking more often. */
 const REFRESH_MS = 2 * 60 * 1000
@@ -99,6 +99,12 @@ export default function App() {
   const mapSites = useMemo(() => toMapSites(sites, filters), [sites, filters])
   const thresholds = useMemo(() => bandThresholds(mapSites.flatMap((s) => (s.price == null || s.price === 0 ? [] : [s.price]))), [mapSites])
   const cheapest = useMemo(() => (bounds ? cheapestIn(mapSites, bounds) : []), [mapSites, bounds])
+  const nearby = useMemo(() => {
+    if (!detail) return []
+    // Compare at the speed the user filtered on, which is the price the map shows for this site
+    const shown = mapSites.find((s) => s.site.id === detail.id)
+    return cheaperNearby(mapSites, { id: detail.id, lat: detail.lat, lon: detail.lon, price: shown ? shown.price : detail.priceNow })
+  }, [mapSites, detail])
 
   const select = useCallback((id: string | null) => {
     setSelectedId(id)
@@ -138,6 +144,8 @@ export default function App() {
           error={detailError}
           thresholds={thresholds}
           preferredSpeed={filters.speed === 'ALL' ? null : filters.speed}
+          nearby={nearby}
+          onPick={pick}
           onClose={() => select(null)}
         />
       )}

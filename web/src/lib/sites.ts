@@ -1,6 +1,7 @@
 // Filtering sites and choosing which price to show, depending on the selected charging speed
 
 import type { SiteSummary, SpeedClass } from '../api'
+import { distanceKm } from './geo'
 
 export type SpeedFilter = 'ALL' | SpeedClass
 
@@ -68,6 +69,29 @@ export function cheapestIn(sites: MapSite[], bounds: Bounds, limit = 5): MapSite
     .filter((s) => s.price != null && s.price > 0)
     .filter((s) => s.site.lon >= bounds.west && s.site.lon <= bounds.east && s.site.lat >= bounds.south && s.site.lat <= bounds.north)
     .sort((a, b) => (a.price as number) - (b.price as number) || b.available - a.available)
+    .slice(0, limit)
+}
+
+export interface NearbySite extends MapSite {
+  distanceKm: number
+}
+
+/**
+ * Sites within {@code radiusKm} that are cheaper than {@code origin} right now, cheapest first.
+ * When the origin has no price, any site with a price counts.
+ */
+export function cheaperNearby(
+  sites: MapSite[],
+  origin: { id: string; lat: number; lon: number; price: number | null },
+  radiusKm = 3,
+  limit = 3,
+): NearbySite[] {
+  return sites
+    .filter((s) => s.site.id !== origin.id && s.price != null && s.price > 0)
+    .filter((s) => origin.price == null || (s.price as number) < origin.price)
+    .map((s) => ({ ...s, distanceKm: distanceKm(origin, s.site) }))
+    .filter((s) => s.distanceKm <= radiusKm)
+    .sort((a, b) => (a.price as number) - (b.price as number) || a.distanceKm - b.distanceKm)
     .slice(0, limit)
 }
 

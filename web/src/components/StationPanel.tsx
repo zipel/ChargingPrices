@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { Availability, ChargePointView, SiteDetail, SpeedClass } from '../api'
+import { formatDistance } from '../lib/geo'
 import { colourOf, formatPrice } from '../lib/price'
-import { SPEED_HINTS, SPEED_LABELS, siteTitle } from '../lib/sites'
+import { type MapSite, type NearbySite, SPEED_HINTS, SPEED_LABELS, siteTitle } from '../lib/sites'
 import { PriceChart } from './PriceChart'
 
 interface Props {
@@ -10,10 +11,12 @@ interface Props {
   error: string | null
   thresholds: number[]
   preferredSpeed: SpeedClass | null
+  nearby: NearbySite[]
+  onPick: (site: MapSite) => void
   onClose: () => void
 }
 
-export function StationPanel({ detail, loading, error, thresholds, preferredSpeed, onClose }: Props) {
+export function StationPanel({ detail, loading, error, thresholds, preferredSpeed, nearby, onPick, onClose }: Props) {
   // The tab the user clicked. App gives this panel a new key per station, which resets it.
   const [chosenSpeed, setSpeed] = useState<SpeedClass | null>(null)
   const speeds = detail?.curves.map((c) => c.speed) ?? []
@@ -79,6 +82,34 @@ export function StationPanel({ detail, loading, error, thresholds, preferredSpee
               <PriceChart points={detail.curves.find((c) => c.speed === speed)?.points ?? []} thresholds={thresholds} />
             </section>
           )}
+
+          <section>
+            <h3>{detail.priceNow == null ? 'Stations with a price nearby' : 'Cheaper nearby'}</h3>
+            {nearby.length === 0 ? (
+              <p className="muted small">
+                {detail.priceNow == null ? 'No stations with a price within 3 km.' : 'Nothing cheaper within 3 km right now.'}
+              </p>
+            ) : (
+              <ol className="nearby">
+                {nearby.map((item) => (
+                  <li key={item.site.id}>
+                    <button className="cheap-item" onClick={() => onPick(item)}>
+                      <span className="cheap-price" style={{ background: colourOf(item.price, thresholds) }}>
+                        {formatPrice(item.price)}
+                      </span>
+                      <span className="cheap-text">
+                        <span className="cheap-title">{siteTitle(item.site)}</span>
+                        <span className="muted small">{[item.site.operator, formatDistance(item.distanceKm)].filter(Boolean).join(' · ')}</span>
+                      </span>
+                      <span className={item.available > 0 ? 'free yes' : 'free'}>
+                        {item.available}/{item.total} free
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
 
           <section>
             <h3>Charge points</h3>
