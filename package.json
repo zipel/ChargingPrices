@@ -1,0 +1,12 @@
+{
+  "name": "chargingprices",
+  "private": true,
+  "description": "Starts the back end and the web app together for local development. See README.md.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/start.mjs"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

@@ -61,6 +61,20 @@ You need:
 - **A JDK, version 17 or newer**, to start Gradle. Gradle downloads Java 25 for the project by itself.
 - **Node.js 22.12 or newer.**
 
+### One command
+
+In the repository folder:
+
+```bash
+npm start
+```
+
+This starts the back end and the web app together, installs the web app's packages on the first run, and opens <http://localhost:5173> in your browser when everything is up. The prices finish loading about a minute later. Press **Ctrl+C** to stop both. Add `-- --no-open` if you don't want the browser to open.
+
+The script is `scripts/start.mjs`. It's written to work on Windows too, but has only been tested on macOS.
+
+### Or run the parts separately
+
 Open two terminals in the repository folder.
 
 **1. The back end** (API on <http://localhost:8080>):

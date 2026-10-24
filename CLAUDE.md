@@ -47,6 +47,7 @@ Dockerfile            builds the web app into the Spring Boot jar; one image on 
 
 | What | Where | Command |
 |---|---|---|
+| Run everything (API and UI), open the browser | repo root | `npm start` (Ctrl+C stops both; `npm start -- --no-open` skips the browser) |
 | Run the API on :8080 | `backend/` | `./gradlew bootRun` (Windows: `gradlew.bat bootRun`) |
 | Back-end tests | `backend/` | `./gradlew test` |
 | Run the UI on :5173 | `web/` | `npm install`, then `npm run dev` |
@@ -72,4 +73,6 @@ The UI needs the API running. Vite forwards `/api` to `localhost:8080`.
 - **Test slices moved too:** `@WebMvcTest` is in `org.springframework.boot.webmvc.test.autoconfigure`, and `MockMvcTester` gives AssertJ-style checks.
 - **Spirii always gzips**, even without `Accept-Encoding`. `SpiriiClient` checks the gzip magic bytes.
 - **MapLibre 6 needs its worker URL set** (`setWorkerUrl` with a `?url` import in `MapView.tsx`), or the map stays blank in production builds.
+- **Spring waits for a running `@Scheduled` task when the app shuts down.** A feed refresh takes about a minute, so `SpiriiRefresher` listens for `ContextClosedEvent` and stops at the next operator.
+- **Gradle runs the app in its daemon's process group, not in gradlew's.** `scripts/start.mjs` can only signal gradlew; the daemon then stops the app a few seconds later. `--no-daemon` doesn't help, because Gradle still forks a one-off daemon.
 - **MapLibre's CSS sets `.maplibregl-map { position: relative }`.** The full-screen rule for the map container must be more specific (`.app > .map`), or the map gets zero height.
