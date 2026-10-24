@@ -38,6 +38,12 @@ class FeedHealthIndicatorTest {
     }
 
     @Test
+    void isDownWhenEveryOperatorFailedAndNothingIsLoaded() {
+        feedStatus.markRefreshed("spirii", NOW.minus(Duration.ofMinutes(1)), 22);
+        assertThat(indicator(true).health().getStatus()).isEqualTo(Status.DOWN);
+    }
+
+    @Test
     void isUpWhenFeedsAreSwitchedOff() {
         assertThat(indicator(false).health().getStatus()).isEqualTo(Status.UP);
     }

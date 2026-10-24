@@ -49,7 +49,11 @@ public class NominatimClient implements PlaceLookup {
             return places;
         }
         for (JsonNode result : results) {
-            places.add(toPlace(result));
+            try {
+                places.add(toPlace(result));
+            } catch (NumberFormatException e) {
+                // A result without usable coordinates is useless on a map; skip it rather than fail the search
+            }
         }
         return places;
     }
@@ -72,14 +76,19 @@ public class NominatimClient implements PlaceLookup {
         double[] bbox = null;
         JsonNode box = result.path("boundingbox");
         if (box.isArray() && box.size() == 4) {
-            // Nominatim's order is south, north, west, east
-            bbox = new double[] {
-                    Double.parseDouble(box.get(2).asString()), Double.parseDouble(box.get(0).asString()),
-                    Double.parseDouble(box.get(3).asString()), Double.parseDouble(box.get(1).asString())};
+            try {
+                // Nominatim's order is south, north, west, east
+                bbox = new double[] {
+                        Double.parseDouble(box.get(2).asString()), Double.parseDouble(box.get(0).asString()),
+                        Double.parseDouble(box.get(3).asString()), Double.parseDouble(box.get(1).asString())};
+            } catch (NumberFormatException e) {
+                bbox = null; // The map then zooms to the point instead
+            }
         }
+        // Throws NumberFormatException for missing or broken coordinates; search() skips those results
         return new Place(name, String.join(", ", rest),
-                Double.parseDouble(result.path("lat").asString("0")),
-                Double.parseDouble(result.path("lon").asString("0")),
+                Double.parseDouble(result.path("lat").asString("")),
+                Double.parseDouble(result.path("lon").asString("")),
                 bbox);
     }
 }

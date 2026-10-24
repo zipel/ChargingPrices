@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /** Builds the API views from the store. Prices are worked out at request time, so "now" is always now. */
@@ -47,11 +48,14 @@ public class SiteQueryService {
     private final SiteStore store;
     private final FeedStatus feedStatus;
     private final Clock clock;
+    private final boolean feedsEnabled;
 
-    public SiteQueryService(SiteStore store, FeedStatus feedStatus, Clock clock) {
+    public SiteQueryService(SiteStore store, FeedStatus feedStatus, Clock clock,
+            @Value("${feeds.spirii.enabled}") boolean feedsEnabled) {
         this.store = store;
         this.feedStatus = feedStatus;
         this.clock = clock;
+        this.feedsEnabled = feedsEnabled;
     }
 
     public SitesResponse sites() {
@@ -83,7 +87,8 @@ public class SiteQueryService {
                 "https://docs.spirii.com/developers/afir-compliance",
                 "Published under EU AFIR Article 20",
                 feedStatus.lastRefresh("spirii").map(FeedStatus.Refresh::at).orElse(null));
-        return new Meta(Instant.now(clock), feedStatus.loading(1), sites.size(), priced, operators, List.of(spirii));
+        boolean loading = feedsEnabled && feedStatus.loading(1);
+        return new Meta(Instant.now(clock), loading, sites.size(), priced, operators, List.of(spirii));
     }
 
     private SiteSummary summary(Site site, LocalDateTime now) {
@@ -173,6 +178,8 @@ public class SiteQueryService {
             }
         }
         return lowest.entrySet().stream()
+                // When clocks spring forward, 02:00–02:59 doesn't exist and would turn into duplicate 03:xx slots
+                .filter(e -> e.getKey().atZone(Denmark.ZONE).toLocalDateTime().equals(e.getKey()))
                 .map(e -> new PricePoint(e.getKey().atZone(Denmark.ZONE).toOffsetDateTime(), e.getValue()))
                 .toList();
     }

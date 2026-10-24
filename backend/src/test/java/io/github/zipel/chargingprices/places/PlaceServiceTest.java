@@ -1,11 +1,15 @@
 package io.github.zipel.chargingprices.places;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.json.JsonMapper;
 
 class PlaceServiceTest {
@@ -41,6 +45,30 @@ class PlaceServiceTest {
 
         assertThat(calls).containsExactly("Aarhus", "Odense");
         assertThat(elapsedMs).isGreaterThanOrEqualTo(900);
+    }
+
+    @Test
+    void answers503WhenTheGeocoderFailsAndDoesNotCacheTheFailure() {
+        List<String> attempts = new ArrayList<>();
+        PlaceService failing = new PlaceService(query -> {
+            attempts.add(query);
+            throw new ResourceAccessException("timeout");
+        }, Clock.systemUTC());
+
+        assertThatThrownBy(() -> failing.search("Roskilde"))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+        assertThatThrownBy(() -> failing.search("Roskilde")).isInstanceOf(ResponseStatusException.class);
+        assertThat(attempts).hasSize(2);
+    }
+
+    @Test
+    void rejectsAResultWithoutCoordinates() {
+        var json = JsonMapper.builder().build().readTree("""
+                {"name": "Nowhere", "display_name": "Nowhere, Danmark"}
+                """);
+
+        assertThatThrownBy(() -> NominatimClient.toPlace(json)).isInstanceOf(NumberFormatException.class);
     }
 
     @Test

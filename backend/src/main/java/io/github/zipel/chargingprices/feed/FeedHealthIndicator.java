@@ -40,7 +40,9 @@ public class FeedHealthIndicator implements HealthIndicator {
         return feedStatus.lastRefresh("spirii")
                 .map(refresh -> {
                     Duration age = Duration.between(refresh.at(), Instant.now(clock));
-                    Health.Builder builder = age.compareTo(maxAge) > 0 ? Health.down() : Health.up();
+                    boolean stale = age.compareTo(maxAge) > 0;
+                    boolean nothingLoaded = refresh.failures() > 0 && store.all().isEmpty();
+                    Health.Builder builder = stale || nothingLoaded ? Health.down() : Health.up();
                     return builder
                             .withDetail("lastRefresh", refresh.at().toString())
                             .withDetail("failedOperators", refresh.failures())

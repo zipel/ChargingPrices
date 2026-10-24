@@ -23,7 +23,7 @@ class SiteQueryServiceTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-23T21:00:00Z"), ZoneOffset.UTC);
 
     private final SiteStore store = new SiteStore();
-    private final SiteQueryService service = new SiteQueryService(store, new FeedStatus(), clock);
+    private final SiteQueryService service = new SiteQueryService(store, new FeedStatus(), clock, true);
 
     @BeforeEach
     void loadFixtures() {
@@ -61,6 +61,24 @@ class SiteQueryServiceTest {
             assertThat(curve.points()).hasSize(96);
             assertThat(curve.points().getFirst().start().toLocalTime()).hasToString("23:00");
         });
+    }
+
+    @Test
+    void skipsTheMissingHourWhenClocksSpringForward() {
+        // 28 March 2027, 00:00 UTC = 01:00 in Copenhagen; at 02:00 the clocks jump to 03:00
+        Clock springForward = Clock.fixed(Instant.parse("2027-03-28T00:00:00Z"), ZoneOffset.UTC);
+        SiteQueryService service = new SiteQueryService(store, new FeedStatus(), springForward, true);
+
+        var points = service.site("spirii-site-1077").orElseThrow().curves().getFirst().points();
+
+        assertThat(points).hasSize(92);
+        assertThat(points).extracting(p -> p.start().toInstant()).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void isNotLoadingWhenFeedsAreSwitchedOff() {
+        assertThat(new SiteQueryService(new SiteStore(), new FeedStatus(), clock, false).meta().loading()).isFalse();
+        assertThat(new SiteQueryService(new SiteStore(), new FeedStatus(), clock, true).meta().loading()).isTrue();
     }
 
     @Test
