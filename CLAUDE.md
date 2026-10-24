@@ -22,7 +22,7 @@ Owner: Dimos Zikos (GitHub `zipel`). Dimos works in VS Code with Claude Code, on
 
 ## Stack
 
-Java 25, Spring Boot 4.1, Gradle (Kotlin DSL) · in-memory store for phase 1 (PostgreSQL + PostGIS later) · JUnit 5, AssertJ · React 19, TypeScript, Vite, MapLibre GL JS with OpenFreeMap tiles · Vitest · GitHub Actions. The reasons are in `docs/decisions/`.
+Java 25, Spring Boot 4.1, Gradle (Kotlin DSL) · in-memory store for phase 1 (PostgreSQL + PostGIS later) · JUnit 5, AssertJ · React 19, TypeScript, Vite, MapLibre GL JS with OpenFreeMap tiles, i18next (English and Danish) · Vitest · Docker · GitHub Actions. The reasons are in `docs/decisions/`.
 
 ## Layout
 
@@ -30,13 +30,17 @@ Java 25, Spring Boot 4.1, Gradle (Kotlin DSL) · in-memory store for phase 1 (Po
 backend/              Spring Boot app
   feed/spirii/        fetches Spirii's public AFIR feed per operator (cpoId), with ETags
   feed/datex/         maps DATEX II JSON to the domain model
-  domain/             Site, ChargePoint, Tariff (price at a given local time), SpeedClass
+  feed/               FeedStatus and the feed health check for /actuator/health
+  domain/             Site, ChargePoint, Tariff (price at a given local time), SpeedClass, SiteAccess
   store/              SiteStore: the latest snapshot, in memory
+  places/             place search through Nominatim (cache, 1 request/second)
   api/                REST controller and the JSON views
 web/                  React app
-  src/components/     MapView, FilterPanel, StationPanel, PriceChart
-  src/lib/            price colours and formatting, filtering
-docs/                 data sources, decisions (ADRs)
+  src/components/     MapView, FilterPanel, StationPanel, PriceChart, PlaceSearch, OperatorComparison
+  src/lib/            price colours and formatting, filtering, distances, operator stats
+  src/i18n/           en.ts and da.ts with every UI text
+docs/                 data sources, decisions (ADRs), the README screenshot
+Dockerfile            builds the web app into the Spring Boot jar; one image on port 8080
 ```
 
 ## Commands
@@ -47,6 +51,7 @@ docs/                 data sources, decisions (ADRs)
 | Back-end tests | `backend/` | `./gradlew test` |
 | Run the UI on :5173 | `web/` | `npm install`, then `npm run dev` |
 | Front-end tests, lint, build | `web/` | `npm test`, `npm run lint`, `npm run build` |
+| Everything in one image on :8080 | repo root | `docker build -t chargingprices .`, then `docker run -p 8080:8080 chargingprices` |
 
 The UI needs the API running. Vite forwards `/api` to `localhost:8080`.
 
@@ -56,11 +61,15 @@ The UI needs the API running. Vite forwards `/api` to `localhost:8080`.
 - **EVSE ID** (e.g. `DK.SPI.Z507*1`) is the stable key for a charge point across feeds.
 - **Price** = the ad hoc price, VAT included, in DKK. See the Javadoc on `Tariff` and `TariffParser` for how the time windows work.
 - **Spirii's feed** returns at most 1,000 sites per request, so it's fetched one operator (`cpoId`) at a time. The list is in `application.yml`.
+- **Dynamic prices are published about a day ahead.** The price curve stops where the published slots end; it never shows the fallback price as a forecast.
+- **UI texts:** every visible string goes in both `web/src/i18n/en.ts` and `da.ts`. The `Translations` type makes the build fail if Danish is missing a key, and `t('...')` keys are checked too.
 
 ## Gotchas (learned the hard way)
 
 - **Spring Boot 4 uses Jackson 3.** Packages are `tools.jackson.databind.*`, not `com.fasterxml.jackson.databind.*`, and `JsonNode` uses `isString()` and `stringValue()`.
-- **Spring Boot 4 has no `RestClient.Builder` bean** without the `spring-boot-starter-restclient` module. `SpiriiClient` builds its own with `RestClient.builder()`.
+- **Spring Boot 4 has no `RestClient.Builder` bean** without the `spring-boot-starter-restclient` module. `SpiriiClient` and `NominatimClient` build their own with `RestClient.builder()`.
+- **Spring Boot 4 moved the health API** to `org.springframework.boot.health.contributor` (`Health`, `HealthIndicator`, `Status`).
+- **Test slices moved too:** `@WebMvcTest` is in `org.springframework.boot.webmvc.test.autoconfigure`, and `MockMvcTester` gives AssertJ-style checks.
 - **Spirii always gzips**, even without `Accept-Encoding`. `SpiriiClient` checks the gzip magic bytes.
 - **MapLibre 6 needs its worker URL set** (`setWorkerUrl` with a `?url` import in `MapView.tsx`), or the map stays blank in production builds.
 - **MapLibre's CSS sets `.maplibregl-map { position: relative }`.** The full-screen rule for the map container must be more specific (`.app > .map`), or the map gets zero height.

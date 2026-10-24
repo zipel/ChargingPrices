@@ -4,9 +4,9 @@ A map of public EV charging stations in Denmark that shows what each one costs p
 
 ![CI](https://github.com/zipel/ChargingPrices/actions/workflows/ci.yml/badge.svg)
 
-> **Status:** phase 1 works locally. Live prices for about 2,300 sites from 21 operators, refreshed every 2 minutes. See the [roadmap](#roadmap).
+> **Status:** phase 1 works locally and in Docker. Live prices for about 2,300 sites from 21 operators, refreshed every 2 minutes. Not online yet. See the [roadmap](#roadmap).
 
-![The map, with the cheapest stations listed on the left and a station's 24-hour price curve on the right](docs/screenshot.png)
+![The map of Copenhagen with price labels, the cheapest stations listed on the left, and a station's price curve on the right](docs/screenshot.png)
 
 ## The problem
 
@@ -20,16 +20,26 @@ ChargingPrices reads those feeds, maps them into one common model and shows the 
 
 ## What it does
 
-- A map of Denmark with sites coloured by their current price per kWh, from cheapest (green) to most expensive (red). The colour bands follow today's actual spread of prices.
+**On the map**
+- Sites coloured by their current price per kWh, from cheapest (green) to most expensive (red). The colour bands follow today's actual spread of prices.
 - Clusters show the cheapest price in their area. From zoom level 11, every site shows its price as a label.
 - Filters for charging speed (standard, fast, ultra-fast), operator and "free charger right now".
+- Search for a town or an address.
 - A list of the five cheapest stations in the visible part of the map.
-- A station panel with the price now, a 24-hour price curve in 15-minute steps, each charge point's connector, power and live status, start fees and parking fees, and a link for directions.
+
+**For each station**
+- The price now, and a price curve for the coming hours in 15-minute steps. For dynamic prices the curve stops where the operator's published prices end; tomorrow's usually arrive around 13:00.
+- Up to three cheaper stations within 3 km.
+- Each charge point's connector, power and live status, plus start fees and parking fees with the times they apply.
+- A shareable link (`#site=...`) and a link for directions.
+
+**Also**
+- "Compare operators": operators ranked by their median price right now, at the selected charging speed.
+- English and Danish, including Danish number and time formats.
 - A mobile layout with collapsible filters and a bottom sheet.
+- Accessible colours (WCAG AA contrast on every price label), visible keyboard focus, and no map animations when the system asks for reduced motion.
 
-Prices are each operator's ad hoc price: pay as you go, VAT included. Subscriptions such as Clever One or Norlys member discounts can be cheaper and are out of scope.
-
-Sites whose name says they're private (e.g. "(Privat)", "Kun for beboere", "employee only") are hidden by default and can be shown with a filter.
+Prices are each operator's ad hoc price: pay as you go, VAT included. Subscriptions such as Clever One or Norlys member discounts can be cheaper and are out of scope. Sites whose name says they're private (e.g. "(Privat)", "Kun for beboere") are hidden by default.
 
 ## Data sources
 
@@ -60,7 +70,7 @@ cd backend
 ./gradlew bootRun
 ```
 
-On Windows, use `gradlew.bat bootRun`. The first full load of the feed takes about half a minute.
+On Windows, use `gradlew.bat bootRun`. The first full load of the feed takes about a minute.
 
 **2. The web app** (UI on <http://localhost:5173>):
 
@@ -72,6 +82,17 @@ npm run dev
 
 Then open <http://localhost:5173>. Vite forwards `/api` calls to the back end.
 
+### With Docker
+
+One image holds both: Spring Boot serves the built web app on port 8080.
+
+```bash
+docker build -t chargingprices .
+docker run -p 8080:8080 chargingprices
+```
+
+Then open <http://localhost:8080>.
+
 ### Tests
 
 ```bash
@@ -79,15 +100,17 @@ cd backend && ./gradlew test
 cd web && npm test
 ```
 
-The back-end tests run on a real three-site sample of the Spirii feed and never call the internet.
+The back-end tests run on a real three-site sample of the Spirii feed and never call the internet. CI also builds the Docker image and smoke-tests it.
 
 ## API
 
 | Endpoint | Returns |
 |---|---|
 | `GET /api/sites` | Every site with its current price, overall and per speed class |
-| `GET /api/sites/{id}` | One site: charge points, status, fees and the 24-hour price curve |
+| `GET /api/sites/{id}` | One site: charge points, status, fees and the price curve |
 | `GET /api/meta` | Operators, data sources and when the data was last refreshed |
+| `GET /api/places?q=...` | Towns and addresses in Denmark, via OpenStreetMap's Nominatim ([why a proxy](docs/decisions/0005-place-search.md)) |
+| `GET /actuator/health` | UP while the feed data is fresh, DOWN when it's older than 10 minutes |
 
 ## Architecture
 
@@ -97,8 +120,8 @@ Spirii AFIR feed (DATEX II, one request per operator, ETag caching)
         v
 DatexParser  -->  Site / ChargePoint / Tariff  -->  SiteStore (in memory)
                                                         |
-                                    REST API (Spring Boot), prices worked out per request
-                                                        |
+                    REST API (Spring Boot), prices worked out per request      Nominatim (place search,
+                                                        |                       cached, 1 request/second)
                                        Web app (React + MapLibre), filters in the browser
 ```
 
@@ -106,17 +129,17 @@ DatexParser  -->  Site / ChargePoint / Tariff  -->  SiteStore (in memory)
 
 - **Back end:** Java 25, Spring Boot 4.1, Gradle
 - **Storage:** in memory for phase 1 ([why](docs/decisions/0003-in-memory-snapshot.md)); PostgreSQL with PostGIS when price history arrives
+- **Front end:** React 19, TypeScript, Vite, MapLibre GL JS with [OpenFreeMap](https://openfreemap.org/) tiles ([why](docs/decisions/0004-map-tiles.md)), i18next
 - **Tests:** JUnit 5 and AssertJ on the back end, Vitest on the front end
-- **Front end:** React 19, TypeScript, Vite, MapLibre GL JS with [OpenFreeMap](https://openfreemap.org/) tiles ([why](docs/decisions/0004-map-tiles.md))
-- **CI:** GitHub Actions
+- **Delivery:** a Docker image, GitHub Actions CI
 
 All decisions are in [docs/decisions](docs/decisions).
 
 ## Roadmap
 
-1. ~~**One feed end to end.** Fetch the Spirii feed, keep it fresh, serve it through the API and show it on the map.~~ Done.
+1. ~~**One feed end to end.** Fetch the Spirii feed, keep it fresh, serve it through the API and show it on the map.~~ Done, with search, operator comparison, Danish and a Docker image on top.
 2. **More operators.** Add Monta, Eco-Movement and OK, plus E.ON if access is granted. Merge stations that appear in more than one feed, using their EVSE IDs.
-3. **Prices over time.** Keep price history in PostgreSQL, show "best time to charge today" and put a public demo online.
+3. **Online and over time.** Put a public demo online, keep price history in PostgreSQL and show "best time to charge today".
 4. **Later.** An assistant for questions like "cheapest charge on my way to Aarhus before 18:00", and a phone app (PWA first).
 
 ## How it's built
@@ -125,7 +148,7 @@ Built with [Claude Code](https://claude.com/claude-code) as a coding assistant. 
 
 ## Data, attribution and disclaimer
 
-The charging data belongs to the operators and is published under AFIR. Map data © OpenStreetMap contributors, tiles by OpenFreeMap and OpenMapTiles. ChargingPrices isn't affiliated with any operator. Prices can change at short notice, so always check the price at the charger or in the operator's app before you charge.
+The charging data belongs to the operators and is published under AFIR. Map data and place search © OpenStreetMap contributors, tiles by OpenFreeMap and OpenMapTiles. ChargingPrices isn't affiliated with any operator. Prices can change at short notice, so always check the price at the charger or in the operator's app before you charge.
 
 ## Licence
 

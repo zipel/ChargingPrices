@@ -101,7 +101,8 @@ The parser and its rules are in `TariffParser` and `Tariff`, with tests on a rea
 - About a quarter of the sites publish no price at all. The map hides these sites unless "Include stations without a price" is ticked.
 - 12 sites publish a price of 0. They are mostly company chargers (e.g. "FedEx Express Danmark ApS"), so they are never ranked as cheapest.
 - About 60 sites say in their name that they aren't public: "(Privat)", "Kun for beboere", "employee only", "Bag lukket hegn". The API flags them (`restricted`) and the map hides them by default.
-- Per-minute fees can have their own time window (e.g. parking fees only 06:00–18:00). The app shows the fee but not yet its window.
+- Per-minute fees can have their own time window and weekdays (e.g. parking fees only Mon–Fri 06:00–17:00). The station panel shows them.
+- Dynamic prices are published from the current slot to about the same time tomorrow, and the next day's prices arrive around 13:00. Before that, the price curve ends at midnight.
 - Some connectors have `maxPowerAtSocket: 0` or an unknown connector type.
 
 ## Monta platform
@@ -126,4 +127,4 @@ The parser and its rules are in `TariffParser` and `Tariff`, with tests on a rea
 - [ ] Tesla Superchargers: no Danish NAP dataset found yet.
 - [ ] Duplicates: Shell Recharge appears in both the Spirii and Eco-Movement feeds. Merge on EVSE ID and decide which source wins.
 - [x] Price model: start fees and per-minute fees are listed under each charge point in the station panel.
-- [ ] Show the time window of per-minute fees.
+- [x] Show the time window of per-minute fees.
