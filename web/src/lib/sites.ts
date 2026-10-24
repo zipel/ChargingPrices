@@ -98,15 +98,3 @@ export function cheaperNearby(
 export function siteTitle(site: { name: string | null; street: string | null; operator: string | null }): string {
   return site.name || site.street || site.operator || 'Charging station'
 }
-
-export const SPEED_LABELS: Record<SpeedClass, string> = {
-  STANDARD: 'Standard',
-  FAST: 'Fast',
-  ULTRA: 'Ultra-fast',
-}
-
-export const SPEED_HINTS: Record<SpeedClass, string> = {
-  STANDARD: 'up to 49 kW',
-  FAST: '50–149 kW',
-  ULTRA: '150 kW and up',
-}

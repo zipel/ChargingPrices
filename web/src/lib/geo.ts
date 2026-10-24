@@ -11,6 +11,7 @@ export function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lo
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h))
 }
 
-export function formatDistance(km: number): string {
-  return km < 1 ? `${Math.round(km * 1000 / 50) * 50} m` : `${km.toFixed(1)} km`
+export function formatDistance(km: number, locale = 'en-GB'): string {
+  if (km < 1) return `${Math.round((km * 1000) / 50) * 50} m`
+  return `${km.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`
 }

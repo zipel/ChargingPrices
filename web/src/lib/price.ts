@@ -4,7 +4,18 @@
 export const BAND_COLOURS = ['#15803d', '#65a30d', '#ca8a04', '#ea580c', '#dc2626'] as const
 export const NO_PRICE_COLOUR = '#9ca3af'
 
-const priceFormat = new Intl.NumberFormat('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+let numberLocale = 'en-GB'
+let priceFormat = new Intl.NumberFormat(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** Set by the language switch: Danish writes 3,46 and English 3.46. */
+export function setNumberLocale(locale: string) {
+  numberLocale = locale
+  priceFormat = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+export function currentLocale(): string {
+  return numberLocale
+}
 
 export function formatPrice(price: number | null | undefined): string {
   return price == null ? '–' : priceFormat.format(price)
@@ -42,12 +53,22 @@ export function colourOf(price: number | null | undefined, thresholds: number[])
   return price == null ? NO_PRICE_COLOUR : BAND_COLOURS[bandOf(price, thresholds)]
 }
 
-/** Legend labels such as "under 2.40", "2.40–2.79", ..., "3.60 and up". */
-export function bandLabels(thresholds: number[]): string[] {
-  const below = (value: number) => formatPrice(Math.round((value - 0.01) * 100) / 100)
-  return BAND_COLOURS.map((_, band) => {
-    if (band === 0) return `under ${formatPrice(thresholds[0])}`
-    if (band === thresholds.length) return `${formatPrice(thresholds[band - 1])} and up`
-    return `${formatPrice(thresholds[band - 1])}–${below(thresholds[band])}`
-  })
+/**
+ * The price range of each colour band, for the legend. The first band has no lower end and the last no
+ * upper end. Upper ends are one øre below the next boundary, e.g. 2.40–2.79.
+ */
+export function bandRanges(thresholds: number[]): { from: number | null; to: number | null }[] {
+  const below = (value: number) => Math.round((value - 0.01) * 100) / 100
+  return BAND_COLOURS.map((_, band) => ({
+    from: band === 0 ? null : thresholds[band - 1],
+    to: band === thresholds.length ? null : below(thresholds[band]),
+  }))
+}
+
+/** The middle value; the mean of the two middle values for an even count. */
+export function median(values: number[]): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
 }

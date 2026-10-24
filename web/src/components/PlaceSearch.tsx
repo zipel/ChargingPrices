@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { type Place, fetchPlaces } from '../api'
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 
 /** Searches on Enter only, not on every keystroke: the geocoder behind it allows one request per second. */
 export function PlaceSearch({ onPick }: Props) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Place[] | null>(null)
   const [busy, setBusy] = useState(false)
@@ -20,7 +22,7 @@ export function PlaceSearch({ onPick }: Props) {
     try {
       setResults(await fetchPlaces(query.trim()))
     } catch {
-      setError('Search isn’t working right now. Try again in a moment.')
+      setError(t('search.error'))
       setResults(null)
     } finally {
       setBusy(false)
@@ -43,10 +45,10 @@ export function PlaceSearch({ onPick }: Props) {
             setQuery(e.target.value)
             if (e.target.value === '') setResults(null)
           }}
-          placeholder="Search a town or address"
-          aria-label="Search a town or address in Denmark"
+          placeholder={t('search.placeholder')}
+          aria-label={t('search.label')}
         />
-        <button type="submit" className="search-button" aria-label="Search" disabled={busy}>
+        <button type="submit" className="search-button" aria-label={t('search.button')} disabled={busy}>
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
             <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="2" fill="none" />
             <path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -56,7 +58,7 @@ export function PlaceSearch({ onPick }: Props) {
       {error && <p className="error small">{error}</p>}
       {results && (
         <ul className="search-results">
-          {results.length === 0 && <li className="muted small empty">No places found in Denmark.</li>}
+          {results.length === 0 && <li className="muted small empty">{t('search.none')}</li>}
           {results.map((place) => (
             <li key={`${place.lat},${place.lon},${place.name}`}>
               <button onClick={() => pick(place)}>

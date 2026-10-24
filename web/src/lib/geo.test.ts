@@ -18,5 +18,6 @@ describe('formatDistance', () => {
   it('uses metres below 1 km and km above', () => {
     expect(formatDistance(0.43)).toBe('450 m')
     expect(formatDistance(2.345)).toBe('2.3 km')
+    expect(formatDistance(2.345, 'da-DK')).toBe('2,3 km')
   })
 })

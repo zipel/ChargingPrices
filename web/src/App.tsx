@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { type Meta, type Place, type SiteDetail, type SiteSummary, fetchMeta, fetchSite, fetchSites } from './api'
 import { FilterPanel } from './components/FilterPanel'
 import { type MapFocus, MapView } from './components/MapView'
+import { OperatorComparison } from './components/OperatorComparison'
 import { StationPanel } from './components/StationPanel'
+import { operatorStats } from './lib/operators'
 import { bandThresholds } from './lib/price'
 import { type Bounds, DEFAULT_FILTERS, type Filters, type MapSite, cheaperNearby, cheapestIn, toMapSites } from './lib/sites'
 
@@ -17,15 +20,18 @@ function siteFromUrl(): string | null {
 }
 
 export default function App() {
+  const { t } = useTranslation()
   const [sites, setSites] = useState<SiteSummary[]>([])
   const [meta, setMeta] = useState<Meta | null>(null)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [bounds, setBounds] = useState<Bounds | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(siteFromUrl)
   const [detail, setDetail] = useState<SiteDetail | null>(null)
-  const [detailError, setDetailError] = useState<string | null>(null)
+  const [detailFailed, setDetailFailed] = useState(false)
+  const [comparing, setComparing] = useState(false)
   const [focus, setFocus] = useState<MapFocus | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  /** The technical reason the API can't be reached; shown inside a translated message */
+  const [serverError, setServerError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(() => window.matchMedia(SMALL_SCREEN).matches)
   const [refreshCount, setRefreshCount] = useState(0)
   // A station opened from a link gets centred once, as soon as the sites have loaded
@@ -39,7 +45,7 @@ export default function App() {
       .then(([sitesResponse, metaResponse]) => {
         setSites(sitesResponse.sites)
         setMeta(metaResponse)
-        setError(null)
+        setServerError(null)
         const linked = sitesResponse.sites.find((s) => s.id === siteToCentre.current)
         if (linked) {
           siteToCentre.current = null
@@ -47,7 +53,7 @@ export default function App() {
         }
       })
       .catch((e: unknown) => {
-        if (!controller.signal.aborted) setError(`Can’t reach the server (${e instanceof Error ? e.message : 'unknown error'}). Is the back end running?`)
+        if (!controller.signal.aborted) setServerError(e instanceof Error ? e.message : 'unknown error')
       })
     const timer = window.setTimeout(() => setRefreshCount((n) => n + 1), stillLoading ? 5000 : REFRESH_MS)
     return () => {
@@ -63,10 +69,10 @@ export default function App() {
     fetchSite(selectedId, controller.signal)
       .then((d) => {
         setDetail(d)
-        setDetailError(null)
+        setDetailFailed(false)
       })
-      .catch((e: unknown) => {
-        if (!controller.signal.aborted) setDetailError(e instanceof Error ? e.message : 'Could not load the station')
+      .catch(() => {
+        if (!controller.signal.aborted) setDetailFailed(true)
       })
     return () => controller.abort()
   }, [selectedId, refreshCount])
@@ -79,7 +85,10 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedId(null)
+      if (e.key === 'Escape') {
+        setSelectedId(null)
+        setComparing(false)
+      }
     }
     // A link to another station on the same page changes only the hash, without reloading
     const onHashChange = () => {
@@ -105,11 +114,14 @@ export default function App() {
     const shown = mapSites.find((s) => s.site.id === detail.id)
     return cheaperNearby(mapSites, { id: detail.id, lat: detail.lat, lon: detail.lon, price: shown ? shown.price : detail.priceNow })
   }, [mapSites, detail])
+  // The comparison ignores the operator filter, otherwise it would show one operator
+  const stats = useMemo(() => (comparing ? operatorStats(toMapSites(sites, { ...filters, operator: '' })) : []), [comparing, sites, filters])
 
   const select = useCallback((id: string | null) => {
     setSelectedId(id)
     setDetail(null)
-    setDetailError(null)
+    setDetailFailed(false)
+    if (id) setComparing(false)
   }, [])
 
   const pick = useCallback(
@@ -126,8 +138,16 @@ export default function App() {
     if (window.matchMedia(SMALL_SCREEN).matches) setCollapsed(true)
   }, [])
 
+  const openComparison = useCallback(() => {
+    select(null)
+    setComparing(true)
+    if (window.matchMedia(SMALL_SCREEN).matches) setCollapsed(true)
+  }, [select])
+
+  const sidePanelOpen = selectedId != null || comparing
+
   return (
-    <div className={selectedId ? 'app has-station' : 'app'}>
+    <div className={sidePanelOpen ? 'app has-station' : 'app'}>
       <MapView sites={mapSites} thresholds={thresholds} selectedId={selectedId} focus={focus} onSelect={select} onBoundsChange={setBounds} />
       <FilterPanel
         filters={filters}
@@ -139,6 +159,7 @@ export default function App() {
         selectedId={selectedId}
         onPick={pick}
         onPlace={goToPlace}
+        onCompare={openComparison}
         collapsed={collapsed}
         onToggle={() => setCollapsed((c) => !c)}
       />
@@ -146,8 +167,8 @@ export default function App() {
         <StationPanel
           key={selectedId}
           detail={detail}
-          loading={detail == null && detailError == null}
-          error={detailError}
+          loading={detail == null && !detailFailed}
+          error={detailFailed ? t('app.stationError') : null}
           thresholds={thresholds}
           preferredSpeed={filters.speed === 'ALL' ? null : filters.speed}
           nearby={nearby}
@@ -155,14 +176,23 @@ export default function App() {
           onClose={() => select(null)}
         />
       )}
-      {error && (
+      {comparing && (
+        <OperatorComparison
+          stats={stats}
+          thresholds={thresholds}
+          selectedOperator={filters.operator}
+          onPickOperator={(operator) => setFilters((f) => ({ ...f, operator: f.operator === operator ? '' : operator }))}
+          onClose={() => setComparing(false)}
+        />
+      )}
+      {serverError && (
         <div className="toast error" role="alert">
-          {error}
+          {t('app.serverError', { message: serverError })}
         </div>
       )}
-      {!error && stillLoading && sites.length === 0 && (
+      {!serverError && stillLoading && sites.length === 0 && (
         <div className="toast" role="status">
-          Loading stations from the operators’ feeds…
+          {t('app.loading')}
         </div>
       )}
     </div>

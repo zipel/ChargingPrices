@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 // the build and gives its address, which works the same in development and production.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Bounds, MapSite } from '../lib/sites'
 import { BAND_COLOURS, NO_PRICE_COLOUR, bandOf, formatPrice } from '../lib/price'
 
@@ -41,6 +42,8 @@ interface Props {
 }
 
 export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoundsChange }: Props) {
+  // The language decides the decimal separator in the price labels, so a change redraws them
+  const { t, i18n } = useTranslation()
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const pinRef = useRef<maplibregl.Marker | null>(null)
@@ -178,7 +181,7 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
     if (!map || !loaded.current) return
     ;(map.getSource('sites') as GeoJSONSource).setData(toGeoJson(sites, thresholds, selectedId))
     map.setPaintProperty('clusters', 'circle-color', clusterColour(thresholds))
-  }, [sites, thresholds, selectedId])
+  }, [sites, thresholds, selectedId, i18n.language])
 
   // Move to a site picked from a list, or to a searched place
   useEffect(() => {
@@ -197,7 +200,7 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
     }
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps -- move only when the focus changes
 
-  return <div ref={container} className="map" aria-label="Map of charging stations" />
+  return <div ref={container} className="map" aria-label={t('app.mapLabel')} />
 }
 
 function toGeoJson(sites: MapSite[], thresholds: number[], selectedId: string | null): FeatureCollection<Point> {

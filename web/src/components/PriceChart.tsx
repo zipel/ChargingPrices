@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { PricePoint } from '../api'
+import { localeOf } from '../i18n'
 import { colourOf, formatPrice } from '../lib/price'
 
 const WIDTH = 340
@@ -14,7 +16,10 @@ interface Props {
 
 /** Bars for the next 24 hours in 15-minute slots. The first bar is the current slot. */
 export function PriceChart({ points, thresholds }: Props) {
+  const { t, i18n } = useTranslation()
   const [hovered, setHovered] = useState<number | null>(null)
+  const timeOf = (iso: string) =>
+    new Date(iso).toLocaleTimeString(localeOf(i18n.language), { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Copenhagen' })
   if (points.length === 0) {
     return null
   }
@@ -36,19 +41,19 @@ export function PriceChart({ points, thresholds }: Props) {
     <figure className="chart">
       <figcaption className="chart-caption">
         <span>
-          <strong>{formatPrice(shown.price)}</strong> kr/kWh at {timeOf(shown.start)}
-          {hovered == null && <span className="muted"> (now)</span>}
+          <strong>{formatPrice(shown.price)}</strong> {t('chart.at', { time: timeOf(shown.start) })}
+          {hovered == null && <span className="muted"> {t('chart.now')}</span>}
         </span>
-        {!allSame && (
-          <span className="muted">
-            Cheapest {formatPrice(cheapest.price)} at {timeOf(cheapest.start)}
-          </span>
-        )}
+        {!allSame && <span className="muted">{t('chart.cheapest', { price: formatPrice(cheapest.price), time: timeOf(cheapest.start) })}</span>}
       </figcaption>
       <svg
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         role="img"
-        aria-label={`Price for the next ${Math.round(points.length / 4)} hours, from ${formatPrice(Math.min(...points.map((p) => p.price)))} to ${formatPrice(Math.max(...points.map((p) => p.price)))} kr/kWh`}
+        aria-label={t('chart.aria', {
+          hours: Math.round(points.length / 4),
+          min: formatPrice(Math.min(...points.map((p) => p.price))),
+          max: formatPrice(Math.max(...points.map((p) => p.price))),
+        })}
         onPointerMove={(e) => setHovered(indexAt(e.clientX, e.currentTarget))}
         onPointerLeave={() => setHovered(null)}
       >
@@ -80,8 +85,4 @@ export function PriceChart({ points, thresholds }: Props) {
       </svg>
     </figure>
   )
-}
-
-function timeOf(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Copenhagen' })
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BAND_COLOURS, NO_PRICE_COLOUR, bandLabels, bandOf, bandThresholds, colourOf, formatPrice } from './price'
+import { BAND_COLOURS, NO_PRICE_COLOUR, bandOf, bandRanges, bandThresholds, colourOf, formatPrice, median, setNumberLocale } from './price'
 
 describe('formatPrice', () => {
   it('always shows two decimals', () => {
@@ -9,6 +9,12 @@ describe('formatPrice', () => {
 
   it('shows a dash when there is no price', () => {
     expect(formatPrice(null)).toBe('–')
+  })
+
+  it('uses a decimal comma in Danish', () => {
+    setNumberLocale('da-DK')
+    expect(formatPrice(3.456)).toBe('3,46')
+    setNumberLocale('en-GB')
   })
 })
 
@@ -41,7 +47,21 @@ describe('bandOf and colourOf', () => {
     expect(colourOf(1, thresholds)).toBe(BAND_COLOURS[0])
   })
 
-  it('labels each band', () => {
-    expect(bandLabels(thresholds)).toEqual(['under 2.00', '2.00–2.49', '2.50–2.99', '3.00–3.49', '3.50 and up'])
+  it('gives each band its price range', () => {
+    expect(bandRanges(thresholds)).toEqual([
+      { from: null, to: 1.99 },
+      { from: 2, to: 2.49 },
+      { from: 2.5, to: 2.99 },
+      { from: 3, to: 3.49 },
+      { from: 3.5, to: null },
+    ])
+  })
+})
+
+describe('median', () => {
+  it('takes the middle value, or the mean of the two middle values', () => {
+    expect(median([3, 1, 2])).toBe(2)
+    expect(median([4, 1, 3, 2])).toBe(2.5)
+    expect(median([])).toBeNull()
   })
 })

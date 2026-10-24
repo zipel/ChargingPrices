@@ -11,9 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "i18next": "^26.5.7",
     "maplibre-gl": "^6.15.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-i18next": "^17.1.5"
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
