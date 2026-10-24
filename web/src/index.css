@@ -8,9 +8,10 @@
   --border: #e2e8f0;
   --accent: #0f766e;
   --accent-soft: #ccfbf1;
-  --free: #16a34a;
+  --free: #15803d;
   --busy: #d97706;
-  --down: #dc2626;
+  --busy-text: #b45309;
+  --down: #b91c1c;
   --unknown: #94a3b8;
   --radius: 14px;
   --radius-small: 8px;
@@ -60,6 +61,12 @@ input {
 
 .muted {
   color: var(--muted);
+}
+
+/* One visible focus style for keyboard users, on every control */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .small {
@@ -749,7 +756,7 @@ input {
 
 .fees {
   font-size: 12.5px;
-  color: var(--busy);
+  color: var(--busy-text);
 }
 
 .actions {

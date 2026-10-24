@@ -8,7 +8,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Bounds, MapSite } from '../lib/sites'
-import { BAND_COLOURS, NO_PRICE_COLOUR, bandOf, formatPrice } from '../lib/price'
+import { BAND_COLOURS, NO_PRICE_COLOUR, bandOf, currentLocale, formatPrice } from '../lib/price'
 
 // Free vector tiles based on OpenStreetMap, no API key needed (see docs/decisions/0004-map-tiles.md)
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
@@ -100,7 +100,7 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
         source: 'sites',
         filter: ['has', 'point_count'],
         layout: {
-          'text-field': ['case', ['<', ['get', 'minPrice'], NO_PRICE], ['number-format', ['get', 'minPrice'], { 'min-fraction-digits': 2, 'max-fraction-digits': 2 }], '–'],
+          'text-field': clusterLabel(currentLocale()),
           'text-font': ['Noto Sans Bold'],
           'text-size': 12,
           'text-allow-overlap': true,
@@ -150,7 +150,7 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
         if (!feature || feature.geometry.type !== 'Point') return
         const source = map.getSource('sites') as GeoJSONSource
         const zoom = await source.getClusterExpansionZoom(feature.properties.cluster_id as number)
-        map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom: zoom + 0.5 })
+        map.easeTo({ center: feature.geometry.coordinates as [number, number], zoom: zoom + 0.5, duration: animationMs() })
       })
       map.on('click', (event) => {
         const hits = map.queryRenderedFeatures(event.point, { layers: ['clusters', 'site-dots', 'site-pills'] })
@@ -181,6 +181,7 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
     if (!map || !loaded.current) return
     ;(map.getSource('sites') as GeoJSONSource).setData(toGeoJson(sites, thresholds, selectedId))
     map.setPaintProperty('clusters', 'circle-color', clusterColour(thresholds))
+    map.setLayoutProperty('cluster-labels', 'text-field', clusterLabel(currentLocale()))
   }, [sites, thresholds, selectedId, i18n.language])
 
   // Move to a site picked from a list, or to a searched place
@@ -190,9 +191,9 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
     const padding = visibleAreaPadding(selectedId != null)
     if (focus.bbox) {
       const [west, south, east, north] = focus.bbox
-      map.fitBounds([[west, south], [east, north]], { padding, maxZoom: 14, duration: 800 })
+      map.fitBounds([[west, south], [east, north]], { padding, maxZoom: 14, duration: animationMs() })
     } else {
-      map.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 13.5), duration: 800, padding })
+      map.easeTo({ center: [focus.lon, focus.lat], zoom: Math.max(map.getZoom(), 13.5), duration: animationMs(), padding })
     }
     if (focus.pin) {
       pinRef.current ??= new maplibregl.Marker({ color: SELECTED_COLOUR, scale: 0.8 })
@@ -222,6 +223,21 @@ function toGeoJson(sites: MapSite[], thresholds: number[], selectedId: string | 
       }
     }),
   }
+}
+
+/** No camera animations for people who turned on "reduce motion" in their system settings. */
+function animationMs(): number {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 800
+}
+
+/** The cheapest price in a cluster, with the decimal separator of the app's language. */
+function clusterLabel(locale: string): ExpressionSpecification {
+  return [
+    'case',
+    ['<', ['get', 'minPrice'], NO_PRICE],
+    ['number-format', ['get', 'minPrice'], { locale, 'min-fraction-digits': 2, 'max-fraction-digits': 2 }],
+    '–',
+  ]
 }
 
 function bandColour(): ExpressionSpecification {

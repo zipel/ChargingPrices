@@ -67,12 +67,11 @@ export function FilterPanel(props: Props) {
       <PlaceSearch onPick={onPlace} />
 
       <div className="filters-body">
-        <div className="segmented" role="radiogroup" aria-label={t('speed.label')}>
+        <div className="segmented" role="group" aria-label={t('speed.label')}>
           {SPEEDS.map((speed) => (
             <button
               key={speed}
-              role="radio"
-              aria-checked={filters.speed === speed}
+              aria-pressed={filters.speed === speed}
               className={filters.speed === speed ? 'segment active' : 'segment'}
               title={t(`speed.hint.${speed}`)}
               onClick={() => set({ speed })}

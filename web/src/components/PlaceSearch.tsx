@@ -12,17 +12,17 @@ export function PlaceSearch({ onPick }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Place[] | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (query.trim().length < 2) return
     setBusy(true)
-    setError(null)
+    setFailed(false)
     try {
       setResults(await fetchPlaces(query.trim()))
     } catch {
-      setError(t('search.error'))
+      setFailed(true)
       setResults(null)
     } finally {
       setBusy(false)
@@ -55,7 +55,7 @@ export function PlaceSearch({ onPick }: Props) {
           </svg>
         </button>
       </form>
-      {error && <p className="error small">{error}</p>}
+      {failed && <p className="error small">{t('search.error')}</p>}
       {results && (
         <ul className="search-results">
           {results.length === 0 && <li className="muted small empty">{t('search.none')}</li>}

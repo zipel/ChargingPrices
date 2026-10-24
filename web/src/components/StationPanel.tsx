@@ -69,12 +69,11 @@ export function StationPanel({ detail, loading, error, thresholds, preferredSpee
               <div className="section-title">
                 <h3>{t('station.next24')}</h3>
                 {detail.curves.length > 1 && (
-                  <div className="tabs" role="tablist">
+                  <div className="tabs" role="group" aria-label={t('speed.label')}>
                     {detail.curves.map((curve) => (
                       <button
                         key={curve.speed}
-                        role="tab"
-                        aria-selected={curve.speed === speed}
+                        aria-pressed={curve.speed === speed}
                         className={curve.speed === speed ? 'tab active' : 'tab'}
                         onClick={() => setSpeed(curve.speed)}
                       >

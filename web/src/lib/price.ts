@@ -1,8 +1,11 @@
 // Price formatting and the colour scale used on the map, the legend and the chart
 
-/** Five colours from cheapest to most expensive, plus grey for "no price published". */
-export const BAND_COLOURS = ['#15803d', '#65a30d', '#ca8a04', '#ea580c', '#dc2626'] as const
-export const NO_PRICE_COLOUR = '#9ca3af'
+/**
+ * Five colours from cheapest to most expensive, plus grey for "no price published". All are dark enough
+ * for white text on top to reach WCAG AA contrast (4.5:1 or more).
+ */
+export const BAND_COLOURS = ['#15803d', '#4d7c0f', '#a16207', '#c2410c', '#b91c1c'] as const
+export const NO_PRICE_COLOUR = '#6b7280'
 
 let numberLocale = 'en-GB'
 let priceFormat = new Intl.NumberFormat(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })

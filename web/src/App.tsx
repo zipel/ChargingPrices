@@ -87,6 +87,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSelectedId(null)
+        setDetail(null)
         setComparing(false)
       }
     }
@@ -94,6 +95,9 @@ export default function App() {
     const onHashChange = () => {
       const id = siteFromUrl()
       setSelectedId(id)
+      setDetail(null)
+      setDetailFailed(false)
+      setComparing(false)
       siteToCentre.current = id
       setRefreshCount((n) => n + 1)
     }
