@@ -13,6 +13,8 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -42,6 +44,9 @@ public class SpiriiRefresher {
     private final Map<String, String> etags = new HashMap<>();
     private final Map<String, Instant> tablesFetchedAt = new HashMap<>();
 
+    /** Set when the app starts shutting down, so a running refresh stops instead of making it wait a minute. */
+    private volatile boolean shuttingDown;
+
     public SpiriiRefresher(SpiriiClient client, DatexParser parser, SiteStore store, SpiriiProperties properties,
             FeedStatus feedStatus, Clock clock) {
         this.client = client;
@@ -52,10 +57,20 @@ public class SpiriiRefresher {
         this.clock = clock;
     }
 
+    /** Spring waits for a running scheduled task when it shuts down; this event comes before that wait. */
+    @EventListener(ContextClosedEvent.class)
+    void stopRefreshing() {
+        shuttingDown = true;
+    }
+
     @Scheduled(initialDelay = 0, fixedDelayString = "${feeds.spirii.statuses-refresh}")
     public void refresh() {
         int failures = 0;
         for (int cpoId : properties.cpoIds()) {
+            if (shuttingDown || Thread.currentThread().isInterrupted()) {
+                log.info("Shutting down, refresh stopped early");
+                return;
+            }
             try {
                 refreshOperator(cpoId);
             } catch (RuntimeException e) {
