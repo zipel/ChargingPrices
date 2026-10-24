@@ -60,7 +60,7 @@ export const en = {
     chargePointCount_other: '{{count}} charge points',
     nowUnit: 'kr/kWh now',
     nowNote: 'incl. VAT, pay as you go',
-    next24: 'Next 24 hours',
+    next24: 'Coming hours',
     cheaperNearby: 'Cheaper nearby',
     pricedNearby: 'Stations with a price nearby',
     nothingCheaper: 'Nothing cheaper within 3 km right now.',
@@ -104,6 +104,7 @@ export const en = {
     at: 'kr/kWh at {{time}}',
     now: '(now)',
     cheapest: 'Cheapest {{price}} at {{time}}',
+    publishedUntil: 'Prices after {{time}} aren’t published yet. Tomorrow’s usually arrive around 13:00.',
     aria: 'Price for the next {{hours}} hours, from {{min}} to {{max}} kr/kWh',
   },
   compare: {

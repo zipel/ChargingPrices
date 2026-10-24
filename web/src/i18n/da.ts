@@ -62,7 +62,7 @@ export const da: Translations = {
     chargePointCount_other: '{{count}} ladepunkter',
     nowUnit: 'kr./kWh nu',
     nowNote: 'inkl. moms, uden abonnement',
-    next24: 'De næste 24 timer',
+    next24: 'De kommende timer',
     cheaperNearby: 'Billigere i nærheden',
     pricedNearby: 'Ladere med pris i nærheden',
     nothingCheaper: 'Intet billigere inden for 3 km lige nu.',
@@ -106,6 +106,7 @@ export const da: Translations = {
     at: 'kr./kWh kl. {{time}}',
     now: '(nu)',
     cheapest: 'Billigst {{price}} kl. {{time}}',
+    publishedUntil: 'Priser efter kl. {{time}} er ikke offentliggjort endnu. Morgendagens kommer typisk omkring kl. 13.',
     aria: 'Pris for de næste {{hours}} timer, fra {{min}} til {{max}} kr./kWh',
   },
   compare: {

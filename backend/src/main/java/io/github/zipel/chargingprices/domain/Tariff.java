@@ -84,16 +84,33 @@ public record Tariff(
                 .or(() -> Optional.ofNullable(fallbackPerKwh));
     }
 
-    /** Prices for the coming hours in 15-minute steps, starting with the slot that contains {@code from}. */
+    /**
+     * Prices for the coming hours in 15-minute steps, starting with the slot that contains {@code from}.
+     *
+     * <p>For a dynamic tariff the curve stops where the published slots end. Tomorrow's prices usually
+     * arrive around 13:00, and until then the fallback price would only be a guess, not a forecast.
+     */
     public List<CurvePoint> curve(LocalDateTime from, Duration length) {
+        boolean dynamic = periodPrices.stream().anyMatch(p -> p.lastDate() != null);
         LocalDateTime slotStart = from.withSecond(0).withNano(0).minusMinutes(from.getMinute() % SLOT.toMinutes());
         LocalDateTime end = slotStart.plus(length);
         List<CurvePoint> points = new ArrayList<>();
         for (LocalDateTime t = slotStart; t.isBefore(end); t = t.plus(SLOT)) {
             LocalDateTime start = t;
-            priceAt(t).ifPresent(price -> points.add(new CurvePoint(start, price)));
+            Optional<BigDecimal> price = dynamic ? publishedPriceAt(t) : priceAt(t);
+            price.ifPresent(p -> points.add(new CurvePoint(start, p)));
         }
         return points;
+    }
+
+    /** The price of a dynamic slot published for that very date, if there is one. */
+    private Optional<BigDecimal> publishedPriceAt(LocalDateTime localTime) {
+        LocalDate date = localTime.toLocalDate();
+        int minute = localTime.getHour() * 60 + localTime.getMinute();
+        return periodPrices.stream()
+                .filter(p -> p.lastDate() != null && p.firstDate().equals(date) && p.coversMinute(minute))
+                .findFirst()
+                .map(PeriodPrice::perKwh);
     }
 
     public boolean hasAnyPrice() {

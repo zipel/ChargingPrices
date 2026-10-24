@@ -30,6 +30,9 @@ export function PriceChart({ points, thresholds }: Props) {
   const cheapest = points.reduce((best, p) => (p.price < best.price ? p : best), points[0])
   const allSame = points.every((p) => p.price === points[0].price)
   const shown = hovered != null ? points[hovered] : points[0]
+  // A full day is 96 slots. Fewer means the operator hasn't published further ahead yet.
+  const lastEnd = new Date(new Date(points[points.length - 1].start).getTime() + 15 * 60 * 1000).toISOString()
+  const shortened = points.length < 92
 
   const indexAt = (clientX: number, target: SVGSVGElement) => {
     const rect = target.getBoundingClientRect()
@@ -83,6 +86,7 @@ export function PriceChart({ points, thresholds }: Props) {
           )
         })}
       </svg>
+      {shortened && <p className="muted small chart-note">{t('chart.publishedUntil', { time: timeOf(lastEnd) })}</p>}
     </figure>
   )
 }

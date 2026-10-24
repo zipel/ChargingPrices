@@ -676,6 +676,10 @@ input {
   stroke: var(--border);
 }
 
+.chart-note {
+  margin-top: 6px;
+}
+
 .chart-tick {
   font-size: 10px;
   fill: var(--muted);

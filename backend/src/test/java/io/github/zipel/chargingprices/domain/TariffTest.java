@@ -6,7 +6,6 @@ import io.github.zipel.chargingprices.domain.Tariff.PeriodPrice;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -71,13 +70,24 @@ class TariffTest {
     }
 
     @Test
-    void curveStartsAtTheCurrentSlotAndSteps15Minutes() {
-        List<Tariff.CurvePoint> curve = dynamic.curve(LocalDateTime.of(FRIDAY, java.time.LocalTime.of(22, 52)), Duration.ofHours(1));
+    void dynamicCurveShowsOnlyPublishedSlotsNotTheFallback() {
+        // From 22:52 for 1 h 15 min: slots 22:45 to 23:45, of which only 22:45 and 23:45 are published
+        List<Tariff.CurvePoint> curve = dynamic.curve(FRIDAY.atTime(22, 52), Duration.ofMinutes(75));
 
-        assertThat(curve).extracting(Tariff.CurvePoint::start).containsExactly(
-                FRIDAY.atTime(22, 45), FRIDAY.atTime(23, 0), FRIDAY.atTime(23, 15), FRIDAY.atTime(23, 30));
+        assertThat(curve).extracting(Tariff.CurvePoint::start).containsExactly(FRIDAY.atTime(22, 45), FRIDAY.atTime(23, 45));
         assertThat(curve.getFirst().perKwh()).isEqualByComparingTo("3.39");
-        assertThat(curve.get(1).perKwh()).isEqualByComparingTo("2.68");
+    }
+
+    @Test
+    void timeOfUseCurveCoversEverySlotIncludingTheFallback() {
+        Tariff eveningPeak = new Tariff(
+                List.of(new PeriodPrice(LocalDate.of(2024, 1, 1), null, 17 * 60, 21 * 60, new BigDecimal("3.50"))),
+                new BigDecimal("2.50"), null, List.of(), "DKK");
+
+        List<Tariff.CurvePoint> curve = eveningPeak.curve(FRIDAY.atTime(16, 30), Duration.ofHours(1));
+
+        assertThat(curve).extracting(Tariff.CurvePoint::perKwh).extracting(BigDecimal::toPlainString)
+                .containsExactly("2.50", "2.50", "3.50", "3.50");
     }
 
     private static PeriodPrice slot(LocalDate date, String start, String end, String price) {

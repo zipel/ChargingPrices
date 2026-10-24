@@ -69,7 +69,8 @@ class SiteQueryServiceTest {
         Clock springForward = Clock.fixed(Instant.parse("2027-03-28T00:00:00Z"), ZoneOffset.UTC);
         SiteQueryService service = new SiteQueryService(store, new FeedStatus(), springForward, true);
 
-        var points = service.site("spirii-site-1077").orElseThrow().curves().getFirst().points();
+        // Site 6262 has a daily time-of-use tariff, so its curve covers every slot
+        var points = service.site("spirii-site-6262").orElseThrow().curves().getFirst().points();
 
         assertThat(points).hasSize(92);
         assertThat(points).extracting(p -> p.start().toInstant()).doesNotHaveDuplicates();
