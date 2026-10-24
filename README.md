@@ -69,7 +69,7 @@ In the repository folder:
 npm start
 ```
 
-This starts the back end and the web app together, installs the web app's packages on the first run, and opens <http://localhost:5173> in your browser when everything is up. The prices finish loading about a minute later. Press **Ctrl+C** to stop both. Add `-- --no-open` if you don't want the browser to open.
+This starts the backend and the web app together, installs the web app's packages on the first run, and opens <http://localhost:5173> in your browser when everything is up. The prices finish loading about a minute later. Press **Ctrl+C** to stop both. Add `-- --no-open` if you don't want the browser to open.
 
 The script is `scripts/start.mjs`. It's written to work on Windows too, but has only been tested on macOS.
 
@@ -77,7 +77,7 @@ The script is `scripts/start.mjs`. It's written to work on Windows too, but has 
 
 Open two terminals in the repository folder.
 
-**1. The back end** (API on <http://localhost:8080>):
+**1. The backend** (API on <http://localhost:8080>):
 
 ```bash
 cd backend
@@ -94,7 +94,7 @@ npm install
 npm run dev
 ```
 
-Then open <http://localhost:5173>. Vite forwards `/api` calls to the back end.
+Then open <http://localhost:5173>. Vite forwards `/api` calls to the backend.
 
 ### With Docker
 
@@ -141,10 +141,10 @@ DatexParser  -->  Site / ChargePoint / Tariff  -->  SiteStore (in memory)
 
 ## Stack
 
-- **Back end:** Java 25, Spring Boot 4.1, Gradle
+- **Backend:** Java 25, Spring Boot 4.1, Gradle
 - **Storage:** in memory for phase 1 ([why](docs/decisions/0003-in-memory-snapshot.md)); PostgreSQL with PostGIS when price history arrives
 - **Front end:** React 19, TypeScript, Vite, MapLibre GL JS with [OpenFreeMap](https://openfreemap.org/) tiles ([why](docs/decisions/0004-map-tiles.md)), i18next
-- **Tests:** JUnit 5 and AssertJ on the back end, Vitest on the front end
+- **Tests:** JUnit 5 and AssertJ on the backend, Vitest on the front end
 - **Delivery:** a Docker image, GitHub Actions CI
 
 All decisions are in [docs/decisions](docs/decisions).
