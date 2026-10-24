@@ -28,3 +28,6 @@ dist/
 
 # Logs
 *.log
+
+# Filled with the built web app inside the Docker build only
+backend/src/main/resources/static/

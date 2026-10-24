@@ -14,8 +14,14 @@ management:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      # Shows feed freshness (see FeedHealthIndicator); there's nothing secret in it
+      show-details: always
 
 feeds:
+  # /actuator/health reports DOWN when the newest data is older than this
+  max-age: PT10M
   spirii:
     enabled: true
     base-url: https://api.spirii.com
