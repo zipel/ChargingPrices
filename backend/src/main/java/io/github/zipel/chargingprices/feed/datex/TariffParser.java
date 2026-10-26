@@ -3,6 +3,7 @@ package io.github.zipel.chargingprices.feed.datex;
 import static io.github.zipel.chargingprices.feed.datex.Json.number;
 import static io.github.zipel.chargingprices.feed.datex.Json.text;
 
+import io.github.zipel.chargingprices.domain.Denmark;
 import io.github.zipel.chargingprices.domain.Tariff;
 import io.github.zipel.chargingprices.domain.Tariff.MinuteFee;
 import io.github.zipel.chargingprices.domain.Tariff.PeriodPrice;
@@ -36,14 +37,27 @@ final class TariffParser {
     private TariffParser() {
     }
 
+    /**
+     * Prices always come out in kroner. Euro prices (Mercedes-Benz High-Power Charging publishes in EUR) are
+     * converted at the peg rate; other currencies aren't expected in Denmark and give no tariff (null).
+     * A null {@code currency} means the feed didn't say, which in Danish feeds means kroner.
+     */
     static Tariff parse(JsonNode energyPrices, String currency) {
+        BigDecimal toKroner;
+        if (currency == null || currency.equalsIgnoreCase("DKK")) {
+            toKroner = BigDecimal.ONE;
+        } else if (currency.equalsIgnoreCase("EUR")) {
+            toKroner = Denmark.EUR_TO_DKK;
+        } else {
+            return null;
+        }
         List<PeriodPrice> periodPrices = new ArrayList<>();
         List<MinuteFee> minuteFees = new ArrayList<>();
         BigDecimal fallback = null;
         BigDecimal startFee = null;
 
         for (JsonNode price : energyPrices) {
-            BigDecimal value = priceWithVat(price);
+            BigDecimal value = priceInKroner(price, toKroner);
             if (value == null) {
                 continue;
             }
@@ -66,7 +80,7 @@ final class TariffParser {
                 }
             }
         }
-        return new Tariff(periodPrices, fallback, startFee, minuteFees, currency == null ? "DKK" : currency);
+        return new Tariff(periodPrices, fallback, startFee, minuteFees, "DKK");
     }
 
     /** A per-minute fee, with the time of day and the weekdays it applies to, when the feed gives them. */
@@ -99,7 +113,8 @@ final class TariffParser {
         }
     }
 
-    private static BigDecimal priceWithVat(JsonNode price) {
+    /** The price including VAT, in kroner, rounded to øre when VAT or a currency conversion was applied. */
+    private static BigDecimal priceInKroner(JsonNode price, BigDecimal toKroner) {
         Double raw = number(price.path("value"));
         if (raw == null) {
             return null;
@@ -109,16 +124,21 @@ final class TariffParser {
             // The feed has floating-point noise such as 0.030000000000000002
             value = value.setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
         }
+        boolean changed = false;
         Double taxRate = number(price.path("taxRate"));
         boolean taxIncluded = price.path("taxIncluded").asBoolean(true);
         if (!taxIncluded && taxRate != null && taxRate > 0) {
             // DATEX II gives the rate in percent (25), but Eco-Movement mostly writes a fraction (0.25).
             // No real VAT rate is 1% or less, so anything up to 1 is read as a fraction.
             BigDecimal percent = taxRate <= 1 ? BigDecimal.valueOf(taxRate).multiply(HUNDRED) : BigDecimal.valueOf(taxRate);
-            BigDecimal factor = BigDecimal.ONE.add(percent.divide(HUNDRED));
-            value = value.multiply(factor).setScale(2, RoundingMode.HALF_UP);
+            value = value.multiply(BigDecimal.ONE.add(percent.divide(HUNDRED)));
+            changed = true;
         }
-        return value;
+        if (toKroner.compareTo(BigDecimal.ONE) != 0) {
+            value = value.multiply(toKroner);
+            changed = true;
+        }
+        return changed ? value.setScale(2, RoundingMode.HALF_UP) : value;
     }
 
     private static List<PeriodPrice> periodPrices(JsonNode period, BigDecimal value) {

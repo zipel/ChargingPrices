@@ -53,8 +53,14 @@ public class DatexParser {
         return sites;
     }
 
-    /** Status updates keyed by the charge point's feed ID ({@link ChargePoint#id()}). */
+    /**
+     * Status updates keyed by the charge point's feed ID ({@link ChargePoint#id()}).
+     *
+     * <p>A price update doesn't say its currency; it points to an energy rate in the table publication, which
+     * does. When the table is in the same document (Eco-Movement), the currency is taken from there.
+     */
     public Map<String, StatusUpdate> parseStatuses(JsonNode root) {
+        Map<String, String> currencyByRate = rateCurrencies(root);
         Map<String, StatusUpdate> updates = new HashMap<>();
         for (JsonNode payload : payloads(root)) {
             JsonNode publication = payload.path("aegiEnergyInfrastructureStatusPublication");
@@ -68,7 +74,8 @@ public class DatexParser {
                         }
                         Tariff tariff = null;
                         for (JsonNode rateUpdate : point.path("energyRateUpdate")) {
-                            tariff = TariffParser.parse(rateUpdate.path("energyPrice"), null);
+                            String currency = currencyByRate.get(text(rateUpdate.path("energyRateReference").path("idG")));
+                            tariff = TariffParser.parse(rateUpdate.path("energyPrice"), currency);
                             break;
                         }
                         updates.put(id, new StatusUpdate(
@@ -80,6 +87,23 @@ public class DatexParser {
             }
         }
         return updates;
+    }
+
+    /** The currency of every energy rate in the document's table publication, keyed by the rate's ID. */
+    private static Map<String, String> rateCurrencies(JsonNode root) {
+        Map<String, String> currencies = new HashMap<>();
+        for (JsonNode payload : payloads(root)) {
+            for (JsonNode rate : payload.path("aegiEnergyInfrastructureTablePublication").findValues("energyRate")) {
+                for (JsonNode entry : rate.isArray() ? rate : List.of(rate)) {
+                    String id = text(entry.path("idG"));
+                    String currency = text(entry.path("applicableCurrency").path(0));
+                    if (id != null && currency != null) {
+                        currencies.put(id, currency);
+                    }
+                }
+            }
+        }
+        return currencies;
     }
 
     /**
