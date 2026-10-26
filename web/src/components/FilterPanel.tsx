@@ -27,7 +27,8 @@ export function FilterPanel(props: Props) {
   const { filters, onFiltersChange, meta, visibleCount, thresholds, cheapest, selectedId, onPick, onPlace, onCompare, collapsed, onToggle } = props
   const { t, i18n } = useTranslation()
   const set = (change: Partial<Filters>) => onFiltersChange({ ...filters, ...change })
-  const lastRefresh = meta?.sources[0]?.lastRefresh
+  // The newest refresh across all feeds
+  const lastRefresh = meta?.sources.map((s) => s.lastRefresh).filter((r): r is string => r != null).sort().at(-1)
   const locale = localeOf(i18n.language)
 
   return (
@@ -118,7 +119,9 @@ export function FilterPanel(props: Props) {
                   ? t('legend.under', { price: formatPrice(thresholds[0]) })
                   : to == null
                     ? t('legend.andUp', { price: formatPrice(from) })
-                    : t('legend.range', { from: formatPrice(from), to: formatPrice(to) })}
+                    : to <= from
+                      ? formatPrice(from)
+                      : t('legend.range', { from: formatPrice(from), to: formatPrice(to) })}
               </li>
             ))}
             {filters.includeUnpriced && (
@@ -164,11 +167,25 @@ export function FilterPanel(props: Props) {
           {meta?.loading ? t('footer.loading') : t('footer.shown', { count: visibleCount })}
           {lastRefresh && ` · ${t('footer.updated', { time: new Date(lastRefresh).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) })}`}
           <br />
-          {t('footer.source')}{' '}
-          <a href="https://docs.spirii.com/developers/afir-compliance" target="_blank" rel="noreferrer">
-            {t('footer.sourceLink')}
-          </a>{' '}
-          {t('footer.operators')}{' '}
+          {t('footer.sources')}{' '}
+          {meta?.sources.map((source, i) => (
+            <span key={source.name}>
+              {i > 0 && ', '}
+              <a href={source.url} target="_blank" rel="noreferrer">
+                {source.name}
+              </a>
+              {source.licenceUrl && (
+                <>
+                  {' ('}
+                  <a href={source.licenceUrl} target="_blank" rel="noreferrer">
+                    {source.licence}
+                  </a>
+                  {')'}
+                </>
+              )}
+            </span>
+          ))}
+          {'. '}
           <a href="https://github.com/zipel/ChargingPrices" target="_blank" rel="noreferrer">
             {t('footer.about')}
           </a>

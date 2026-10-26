@@ -25,11 +25,15 @@ export function formatPrice(price: number | null | undefined): string {
 }
 
 /**
- * Splits the prices into five equally large groups and returns the four boundaries between them.
- * Using the data's own spread means the colours stay useful whether prices are high or low today.
+ * Splits the price levels into five groups and returns the four boundaries between them.
+ *
+ * Each distinct price (to the øre) counts once, however many sites charge it. Otherwise one very common
+ * price, like Clever's 3.49 kr at over 3,000 sites, would squeeze all five colours into a few øre.
+ * Using the data's own levels keeps the colours useful whether prices are high or low today.
  */
 export function bandThresholds(prices: number[]): number[] {
-  const sorted = prices.filter((p) => Number.isFinite(p)).sort((a, b) => a - b)
+  const levels = new Set(prices.filter((p) => Number.isFinite(p)).map((p) => Math.round(p * 100) / 100))
+  const sorted = [...levels].sort((a, b) => a - b)
   if (sorted.length === 0) {
     return [2, 2.5, 3, 3.5]
   }

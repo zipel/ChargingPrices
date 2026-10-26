@@ -67,7 +67,7 @@ export function MapView({ sites, thresholds, selectedId, focus, onSelect, onBoun
       attributionControl: false,
     })
     mapRef.current = map
-    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Prices: Spirii AFIR feed' }), 'bottom-right')
+    map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Prices: operators’ AFIR feeds' }), 'bottom-right')
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
     map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, fitBoundsOptions: { maxZoom: 13 } }), 'bottom-right')
 

@@ -24,6 +24,13 @@ describe('bandThresholds', () => {
     expect(bandThresholds(prices)).toEqual([1.2, 1.4, 1.6, 1.8])
   })
 
+  it('counts each price level once, so one very common price does not squeeze the colours', () => {
+    const prices = [...Array(3000).fill(3.49), 1.5, 2.0, 2.5, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5]
+    const thresholds = bandThresholds(prices)
+    expect(thresholds[0]).toBeLessThan(3)
+    expect(thresholds[3]).toBeGreaterThan(4)
+  })
+
   it('keeps boundaries increasing when many prices are the same', () => {
     const thresholds = bandThresholds([3, 3, 3, 3, 3, 3, 3, 3, 4, 5])
     for (let i = 1; i < thresholds.length; i++) {

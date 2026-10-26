@@ -79,7 +79,8 @@ export interface Meta {
   siteCount: number
   pricedSiteCount: number
   operators: { name: string; sites: number }[]
-  sources: { name: string; url: string; licence: string; lastRefresh: string | null }[]
+  /** The feeds that are switched on. lastRefresh is the last successful refresh. */
+  sources: { name: string; url: string; licence: string; licenceUrl: string | null; lastRefresh: string | null }[]
 }
 
 /** A town, street or address. bbox is [west, south, east, north] when the place has an area. */
