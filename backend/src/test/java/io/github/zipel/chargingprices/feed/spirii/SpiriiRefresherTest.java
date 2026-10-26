@@ -33,6 +33,6 @@ class SpiriiRefresherTest {
 
         verify(client, never()).fetch(any(), anyInt(), any());
         // An unfinished run doesn't count as a refresh, so the health check doesn't report fresh data
-        assertThat(feedStatus.lastRefresh("spirii")).isEmpty();
+        assertThat(feedStatus.refresh("spirii")).isEmpty();
     }
 }

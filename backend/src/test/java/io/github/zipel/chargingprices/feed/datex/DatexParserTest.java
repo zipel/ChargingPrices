@@ -87,6 +87,64 @@ class DatexParserTest {
         });
     }
 
+    @Test
+    void parsesEcoMovementSites() {
+        // Eco-Movement fills DATEX II differently: entrance, brand, energyDistributor, EVSE IDs on connectors
+        List<Site> sites = parser.parseTable(ecoFixture(), "ecomovement");
+
+        assertThat(sites).hasSize(4);
+        Site ionity = find(sites, "ecomovement-IONITY-2073");
+        assertThat(ionity.name()).isEqualTo("IONITY GmbH IONITY Aarup");
+        assertThat(ionity.operator()).isEqualTo("IONITY");
+        assertThat(ionity.latitude()).isEqualTo(55.413867);
+        assertThat(ionity.street()).isEqualTo("Gamle Hovedvej 27");
+
+        ChargePoint point = ionity.chargePoints().getFirst();
+        assertThat(point.evseId()).startsWith("DK*IOY*E3192");
+        assertThat(point.currentType()).isEqualTo(CurrentType.DC);
+        assertThat(point.maxPowerKw()).isEqualTo(400.0);
+        // 3.0877 kr excluding VAT, with taxRate written as a percentage (25)
+        assertThat(point.tariff().fallbackPerKwh()).isEqualByComparingTo("3.86");
+    }
+
+    @Test
+    void readsVatWrittenAsAFraction() {
+        // Clever's 2.79 kr with taxRate 0.25 instead of 25: 3.49 kr including VAT, Clever's published AC price
+        Site clever = find(parser.parseTable(ecoFixture(), "ecomovement"), "ecomovement-Clever-e711dd96-cb74-ef11-a670-0022489a400b");
+
+        assertThat(clever.chargePoints().getFirst().tariff().fallbackPerKwh()).isEqualByComparingTo("3.49");
+    }
+
+    @Test
+    void parsesEcoMovementFeesAndMissingPrices() {
+        List<Site> sites = parser.parseTable(ecoFixture(), "ecomovement");
+
+        Tariff allego = find(sites, "ecomovement-Allego-DKLOC000111").chargePoints().getFirst().tariff();
+        assertThat(allego.fallbackPerKwh()).isEqualByComparingTo("4.84");
+        assertThat(allego.minuteFees()).singleElement().satisfies(fee -> {
+            assertThat(fee.perMinute()).isEqualByComparingTo("1.93");
+            assertThat(fee.fromMinute()).isEqualTo(45);
+        });
+        assertThat(find(sites, "ecomovement-Spirii-23986").chargePoints().getFirst().tariff()).isNull();
+    }
+
+    @Test
+    void parsesEcoMovementStatusesFromTheSameDocument() {
+        Map<String, StatusUpdate> updates = parser.parseStatuses(ecoFixture());
+
+        assertThat(updates).hasSize(8);
+        assertThat(updates.get("DK*IOY*E319271").availability()).isEqualTo(Availability.OCCUPIED);
+        assertThat(updates.get("DK*CLE*E114072*1").availability()).isEqualTo(Availability.AVAILABLE);
+    }
+
+    private static JsonNode ecoFixture() {
+        try (InputStream in = DatexParserTest.class.getResourceAsStream("/fixtures/eco-movement/locations.json")) {
+            return JsonMapper.builder().build().readTree(in);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private static Site find(List<Site> sites, String id) {
         return sites.stream().filter(s -> s.id().equals(id)).findFirst().orElseThrow();
     }

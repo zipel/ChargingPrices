@@ -92,6 +92,7 @@ public final class SiteViews {
     public record OperatorCount(String name, int sites) {
     }
 
-    public record SourceInfo(String name, String url, String licence, Instant lastRefresh) {
+    /** {@code licenceUrl} may be null. {@code lastRefresh} is the last successful refresh. */
+    public record SourceInfo(String name, String url, String licence, String licenceUrl, Instant lastRefresh) {
     }
 }

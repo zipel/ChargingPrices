@@ -112,7 +112,10 @@ final class TariffParser {
         Double taxRate = number(price.path("taxRate"));
         boolean taxIncluded = price.path("taxIncluded").asBoolean(true);
         if (!taxIncluded && taxRate != null && taxRate > 0) {
-            BigDecimal factor = BigDecimal.ONE.add(BigDecimal.valueOf(taxRate).divide(HUNDRED));
+            // DATEX II gives the rate in percent (25), but Eco-Movement mostly writes a fraction (0.25).
+            // No real VAT rate is 1% or less, so anything up to 1 is read as a fraction.
+            BigDecimal percent = taxRate <= 1 ? BigDecimal.valueOf(taxRate).multiply(HUNDRED) : BigDecimal.valueOf(taxRate);
+            BigDecimal factor = BigDecimal.ONE.add(percent.divide(HUNDRED));
             value = value.multiply(factor).setScale(2, RoundingMode.HALF_UP);
         }
         return value;

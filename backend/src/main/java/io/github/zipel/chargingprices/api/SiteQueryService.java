@@ -36,7 +36,6 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /** Builds the API views from the store. Prices are worked out at request time, so "now" is always now. */
@@ -48,14 +47,11 @@ public class SiteQueryService {
     private final SiteStore store;
     private final FeedStatus feedStatus;
     private final Clock clock;
-    private final boolean feedsEnabled;
 
-    public SiteQueryService(SiteStore store, FeedStatus feedStatus, Clock clock,
-            @Value("${feeds.spirii.enabled}") boolean feedsEnabled) {
+    public SiteQueryService(SiteStore store, FeedStatus feedStatus, Clock clock) {
         this.store = store;
         this.feedStatus = feedStatus;
         this.clock = clock;
-        this.feedsEnabled = feedsEnabled;
     }
 
     public SitesResponse sites() {
@@ -82,13 +78,11 @@ public class SiteQueryService {
                 .map(e -> new OperatorCount(e.getKey(), e.getValue().intValue()))
                 .sorted(Comparator.comparingInt(OperatorCount::sites).reversed())
                 .toList();
-        SourceInfo spirii = new SourceInfo(
-                "Spirii AFIR feed (DATEX II)",
-                "https://docs.spirii.com/developers/afir-compliance",
-                "Published under EU AFIR Article 20",
-                feedStatus.lastRefresh("spirii").map(FeedStatus.Refresh::at).orElse(null));
-        boolean loading = feedsEnabled && feedStatus.loading(1);
-        return new Meta(Instant.now(clock), loading, sites.size(), priced, operators, List.of(spirii));
+        List<SourceInfo> sources = feedStatus.sources().stream()
+                .map(source -> new SourceInfo(source.name(), source.url(), source.licence(), source.licenceUrl(),
+                        feedStatus.refresh(source.key()).map(FeedStatus.Refresh::lastSuccess).orElse(null)))
+                .toList();
+        return new Meta(Instant.now(clock), feedStatus.loading(), sites.size(), priced, operators, sources);
     }
 
     private SiteSummary summary(Site site, LocalDateTime now) {

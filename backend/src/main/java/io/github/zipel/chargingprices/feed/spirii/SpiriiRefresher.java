@@ -55,6 +55,8 @@ public class SpiriiRefresher {
         this.properties = properties;
         this.feedStatus = feedStatus;
         this.clock = clock;
+        feedStatus.register(new FeedStatus.Source(SOURCE, "Spirii AFIR feed (DATEX II)",
+                "https://docs.spirii.com/developers/afir-compliance", "Published under EU AFIR Article 20", null));
     }
 
     /** Spring waits for a running scheduled task when it shuts down; this event comes before that wait. */
@@ -78,7 +80,11 @@ public class SpiriiRefresher {
                 log.warn("Spirii operator {} failed: {}", cpoId, e.getMessage());
             }
         }
-        feedStatus.markRefreshed(SOURCE, Instant.now(clock), failures);
+        if (failures < properties.cpoIds().size()) {
+            feedStatus.markSucceeded(SOURCE, Instant.now(clock), failures);
+        } else {
+            feedStatus.markFailed(SOURCE, Instant.now(clock));
+        }
         log.info("Spirii refresh done: {} sites in store, {} operator(s) failed", store.all().size(), failures);
     }
 

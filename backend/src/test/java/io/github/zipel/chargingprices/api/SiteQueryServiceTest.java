@@ -23,7 +23,7 @@ class SiteQueryServiceTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-23T21:00:00Z"), ZoneOffset.UTC);
 
     private final SiteStore store = new SiteStore();
-    private final SiteQueryService service = new SiteQueryService(store, new FeedStatus(), clock, true);
+    private final SiteQueryService service = new SiteQueryService(store, new FeedStatus(), clock);
 
     @BeforeEach
     void loadFixtures() {
@@ -67,7 +67,7 @@ class SiteQueryServiceTest {
     void skipsTheMissingHourWhenClocksSpringForward() {
         // 28 March 2027, 00:00 UTC = 01:00 in Copenhagen; at 02:00 the clocks jump to 03:00
         Clock springForward = Clock.fixed(Instant.parse("2027-03-28T00:00:00Z"), ZoneOffset.UTC);
-        SiteQueryService service = new SiteQueryService(store, new FeedStatus(), springForward, true);
+        SiteQueryService service = new SiteQueryService(store, new FeedStatus(), springForward);
 
         // Site 6262 has a daily time-of-use tariff, so its curve covers every slot
         var points = service.site("spirii-site-6262").orElseThrow().curves().getFirst().points();
@@ -77,9 +77,17 @@ class SiteQueryServiceTest {
     }
 
     @Test
-    void isNotLoadingWhenFeedsAreSwitchedOff() {
-        assertThat(new SiteQueryService(new SiteStore(), new FeedStatus(), clock, false).meta().loading()).isFalse();
-        assertThat(new SiteQueryService(new SiteStore(), new FeedStatus(), clock, true).meta().loading()).isTrue();
+    void isLoadingOnlyUntilEverySwitchedOnFeedHasRun() {
+        FeedStatus feedStatus = new FeedStatus();
+        SiteQueryService service = new SiteQueryService(new SiteStore(), feedStatus, clock);
+        assertThat(service.meta().loading()).as("no feeds switched on").isFalse();
+
+        feedStatus.register(new FeedStatus.Source("spirii", "Spirii", "https://example.invalid", "AFIR", null));
+        assertThat(service.meta().loading()).isTrue();
+
+        feedStatus.markSucceeded("spirii", clock.instant(), 0);
+        assertThat(service.meta().loading()).isFalse();
+        assertThat(service.meta().sources()).singleElement().satisfies(source -> assertThat(source.lastRefresh()).isEqualTo(clock.instant()));
     }
 
     @Test

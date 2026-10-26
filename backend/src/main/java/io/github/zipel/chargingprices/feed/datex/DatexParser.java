@@ -24,6 +24,11 @@ import tools.jackson.databind.JsonNode;
  *
  * <p>A feed has two parts. The table publication holds the static data (sites, stations, charge points,
  * connectors) and the status publication holds the dynamic data (availability and current prices).
+ *
+ * <p>Publishers fill in the standard differently, so several fields are read from more than one place.
+ * Spirii puts the location in {@code locationReference}, the name in {@code name} and the operator in
+ * {@code operator}; Eco-Movement uses {@code entrance}, {@code brand} and {@code energyDistributor}, keeps
+ * EVSE IDs on the connectors and prices under {@code energyProduct}.
  */
 @Component
 public class DatexParser {
@@ -77,8 +82,14 @@ public class DatexParser {
         return updates;
     }
 
-    /** Publications come either as {@code {"payload": {...}}} or wrapped in a {@code messageContainer} with a list. */
+    /**
+     * Publications come as {@code {"payload": {...}}}, wrapped in a {@code messageContainer} with a list
+     * (both Spirii), or directly at the top level (Eco-Movement).
+     */
     private static List<JsonNode> payloads(JsonNode root) {
+        if (root.has("aegiEnergyInfrastructureTablePublication") || root.has("aegiEnergyInfrastructureStatusPublication")) {
+            return List.of(root);
+        }
         JsonNode payload = root.has("messageContainer") ? root.path("messageContainer").path("payload") : root.path("payload");
         List<JsonNode> result = new ArrayList<>();
         if (payload.isArray()) {
@@ -90,15 +101,14 @@ public class DatexParser {
     }
 
     private Site parseSite(JsonNode site, String source) {
-        JsonNode location = site.path("locationReference");
-        JsonNode coordinates = location.findValue("coordinatesForDisplay");
+        JsonNode coordinates = findInLocation(site, "coordinatesForDisplay");
         Double latitude = coordinates == null ? null : number(coordinates.path("latitude"));
         Double longitude = coordinates == null ? null : number(coordinates.path("longitude"));
         if (latitude == null || longitude == null) {
             return null;
         }
 
-        JsonNode address = location.findValue("address");
+        JsonNode address = findInLocation(site, "address");
         String street = null;
         String postcode = null;
         String city = null;
@@ -123,11 +133,12 @@ public class DatexParser {
             }
         }
 
+        String name = multilingual(site.path("name"));
         return new Site(
                 source + "-" + text(site.path("idG")),
                 source,
-                multilingual(site.path("name")),
-                multilingual(site.path("operator").path("afacAnOrganisation").path("name")),
+                name != null ? name : multilingual(site.path("brand")),
+                operator(site),
                 latitude,
                 longitude,
                 street,
@@ -135,6 +146,27 @@ public class DatexParser {
                 city,
                 site.path("operatingHours").has("afacOpenAllHours"),
                 chargePoints);
+    }
+
+    /** The location sits in {@code locationReference} (Spirii) or in {@code entrance} (Eco-Movement). */
+    private static JsonNode findInLocation(JsonNode site, String field) {
+        JsonNode found = site.path("locationReference").findValue(field);
+        return found != null ? found : site.path("entrance").findValue(field);
+    }
+
+    /** The operator, or failing that the energy distributor of the site or of its first station. */
+    private static String operator(JsonNode site) {
+        String operator = multilingual(site.path("operator").path("afacAnOrganisation").path("name"));
+        if (operator == null) {
+            operator = multilingual(site.path("energyDistributor").path("afacAnOrganisation").path("name"));
+        }
+        if (operator == null) {
+            for (JsonNode station : site.path("energyInfrastructureStation")) {
+                operator = multilingual(station.path("energyDistributor").path("afacAnOrganisation").path("name"));
+                break;
+            }
+        }
+        return operator;
     }
 
     private ChargePoint parseChargePoint(JsonNode point) {
@@ -149,6 +181,16 @@ public class DatexParser {
                 maxPowerKw = kw;
             }
         }
+        if (maxPowerKw == null) {
+            // Some feeds only give the power for the whole charge point
+            for (JsonNode power : point.path("availableChargingPower")) {
+                Double watts = number(power);
+                Double kw = watts != null && watts > 0 ? watts / 1000 : null;
+                if (kw != null && (maxPowerKw == null || kw > maxPowerKw)) {
+                    maxPowerKw = kw;
+                }
+            }
+        }
 
         return new ChargePoint(
                 text(point.path("idG")),
@@ -161,9 +203,24 @@ public class DatexParser {
                 null);
     }
 
+    /** The EVSE ID sits on the charge point (Spirii) or on its connectors (Eco-Movement). */
     private static String evseId(JsonNode point) {
+        String fromPoint = evseIdIn(point.path("externalIdentifier"));
+        if (fromPoint != null) {
+            return fromPoint;
+        }
+        for (JsonNode connector : point.path("connector")) {
+            String fromConnector = evseIdIn(connector.path("externalIdentifier"));
+            if (fromConnector != null) {
+                return fromConnector;
+            }
+        }
+        return null;
+    }
+
+    private static String evseIdIn(JsonNode identifiers) {
         String first = null;
-        for (JsonNode identifier : point.path("externalIdentifier")) {
+        for (JsonNode identifier : identifiers) {
             String value = text(identifier.path("identifier"));
             if ("evseId".equals(text(identifier.path("typeOfIdentifier").path("extendedValueG")))) {
                 return value;
@@ -175,9 +232,15 @@ public class DatexParser {
         return first;
     }
 
-    /** The ad hoc rate from the static data. Status updates replace it with fresher prices later. */
+    /**
+     * The ad hoc rate from the static data. Status updates replace it with fresher prices later.
+     * Rates sit in {@code electricEnergy} (Spirii) or in {@code energyProduct[].aegiElectricEnergy} (Eco-Movement).
+     */
     private static Tariff staticTariff(JsonNode point) {
-        for (JsonNode electricEnergy : point.path("electricEnergy")) {
+        List<JsonNode> energies = new ArrayList<>();
+        point.path("electricEnergy").forEach(energies::add);
+        point.path("energyProduct").forEach(product -> energies.add(product.path("aegiElectricEnergy")));
+        for (JsonNode electricEnergy : energies) {
             for (JsonNode rate : electricEnergy.path("energyRate")) {
                 String policy = enumValue(rate.path("ratePolicy"));
                 if (policy == null || "adHoc".equals(policy)) {
@@ -194,10 +257,10 @@ public class DatexParser {
     }
 
     private static CurrentType currentType(String value) {
-        if ("ac".equals(value)) {
+        if ("ac".equalsIgnoreCase(value)) {
             return CurrentType.AC;
         }
-        return "dc".equals(value) ? CurrentType.DC : CurrentType.UNKNOWN;
+        return "dc".equalsIgnoreCase(value) ? CurrentType.DC : CurrentType.UNKNOWN;
     }
 
     private static Instant instant(String value) {

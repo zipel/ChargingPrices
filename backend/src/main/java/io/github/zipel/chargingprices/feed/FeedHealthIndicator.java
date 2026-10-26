@@ -4,14 +4,17 @@ import io.github.zipel.chargingprices.store.SiteStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.stereotype.Component;
 
 /**
- * Adds the data's freshness to {@code /actuator/health}, so a host can restart the app when the feed stops
- * updating. Still loading counts as healthy; data older than {@code max-age} counts as down.
+ * Adds the data's freshness to {@code /actuator/health}, so a host can restart the app when a feed stops
+ * updating. A feed that is still loading counts as healthy; one whose last successful refresh is older than
+ * {@code max-age}, or that has never succeeded, counts as down.
  */
 @Component("feeds")
 public class FeedHealthIndicator implements HealthIndicator {
@@ -19,36 +22,35 @@ public class FeedHealthIndicator implements HealthIndicator {
     private final FeedStatus feedStatus;
     private final SiteStore store;
     private final Clock clock;
-    private final boolean enabled;
     private final Duration maxAge;
 
     public FeedHealthIndicator(FeedStatus feedStatus, SiteStore store, Clock clock,
-            @Value("${feeds.spirii.enabled}") boolean enabled,
-            @Value("${feeds.max-age:PT10M}") Duration maxAge) {
+            @Value("${feeds.max-age:PT25M}") Duration maxAge) {
         this.feedStatus = feedStatus;
         this.store = store;
         this.clock = clock;
-        this.enabled = enabled;
         this.maxAge = maxAge;
     }
 
     @Override
     public Health health() {
-        if (!enabled) {
-            return Health.up().withDetail("spirii", "disabled").build();
+        boolean down = false;
+        Map<String, Object> details = new LinkedHashMap<>();
+        for (FeedStatus.Source source : feedStatus.sources()) {
+            var refresh = feedStatus.refresh(source.key()).orElse(null);
+            if (refresh == null) {
+                details.put(source.key(), "loading");
+                continue;
+            }
+            boolean fresh = refresh.lastSuccess() != null
+                    && Duration.between(refresh.lastSuccess(), Instant.now(clock)).compareTo(maxAge) <= 0;
+            down |= !fresh;
+            details.put(source.key(), Map.of(
+                    "status", fresh ? "UP" : "DOWN",
+                    "lastSuccess", refresh.lastSuccess() == null ? "never" : refresh.lastSuccess().toString(),
+                    "failures", refresh.failures()));
         }
-        return feedStatus.lastRefresh("spirii")
-                .map(refresh -> {
-                    Duration age = Duration.between(refresh.at(), Instant.now(clock));
-                    boolean stale = age.compareTo(maxAge) > 0;
-                    boolean nothingLoaded = refresh.failures() > 0 && store.all().isEmpty();
-                    Health.Builder builder = stale || nothingLoaded ? Health.down() : Health.up();
-                    return builder
-                            .withDetail("lastRefresh", refresh.at().toString())
-                            .withDetail("failedOperators", refresh.failures())
-                            .withDetail("sites", store.all().size())
-                            .build();
-                })
-                .orElseGet(() -> Health.up().withDetail("spirii", "loading").build());
+        details.put("sites", store.all().size());
+        return (down ? Health.down() : Health.up()).withDetails(details).build();
     }
 }

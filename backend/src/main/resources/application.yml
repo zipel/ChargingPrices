@@ -1,6 +1,15 @@
 spring:
   application:
     name: chargingprices
+  config:
+    # Secrets such as the Eco-Movement token live in a git-ignored .env file in the repository folder.
+    # bootRun runs in backend/, so the file is one level up. In Docker, use environment variables instead.
+    import: "optional:file:../.env[.properties],optional:file:./.env[.properties]"
+  task:
+    scheduling:
+      pool:
+        # One thread per feed, so a slow feed doesn't hold up the others
+        size: 2
 
 server:
   port: 8080
@@ -20,8 +29,8 @@ management:
       show-details: always
 
 feeds:
-  # /actuator/health reports DOWN when the newest data is older than this
-  max-age: PT10M
+  # /actuator/health reports DOWN when a feed's last successful refresh is older than this
+  max-age: PT25M
   spirii:
     enabled: true
     base-url: https://api.spirii.com
@@ -32,6 +41,13 @@ feeds:
     statuses-refresh: PT2M
     tables-refresh: PT6H
     pause-between-requests: PT0.25S
+  eco-movement:
+    # Switched on when a token is set: ECO_MOVEMENT_TOKEN in .env or in the environment
+    token: ${ECO_MOVEMENT_TOKEN:}
+    url: ${ECO_MOVEMENT_URL:https://nap-dk.eco-movement.com/datex2/v1/locations}
+    # The whole country is about 35 MB, so not too often
+    refresh: PT10M
+    max-pages: 20
 
 places:
   # OpenStreetMap's free geocoder. Usage policy: identify the app, max 1 request/second, cache results.
