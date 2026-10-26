@@ -10,7 +10,7 @@ Last checked: 2026-10-23.
 |---|---|---|---|---|---|
 | Spirii | (Spirii's own API; OCPI dataset 1004 on the NAP) | DATEX II v3 | Public, no key | Not stated | Not stated |
 | Monta platform | 1092 | DATEX II | Monta Public API credentials | CC BY 4.0 | Up to 1 min |
-| Eco-Movement | 1170 | DATEX II | Token from support@eco-movement.com | CC BY 4.0 | Up to 1 min |
+| Eco-Movement | 1170 | DATEX II v3 | Bearer token from support@eco-movement.com (**in use**) | CC BY 4.0 | Up to 1 min |
 | OK | 1096 | DATEX II v3 | To be confirmed | Other | Up to 5 min |
 | E.ON Drive | 897 | DATEX II | Agreement needed | Restricted | |
 | EV-EL | 1101 | Not stated | To be confirmed | CC BY 4.0 | |
@@ -113,11 +113,30 @@ The parser and its rules are in `TariffParser` and `Tariff`, with tests on a rea
 - `GET .../afir/charge-points/{evseId}/status` gives live availability and the ad hoc price.
 - The old partner API endpoint was retired on 8 September 2026. Use the Public API.
 
-## Eco-Movement
+## Eco-Movement (in use)
 
-- NAP dataset 1170 covers Allego, Circle K, Clever, Eviny, Fastned, IONITY, Lidl, Mercedes-Benz High-Power Charging, Milence, Q8, Q-Park and Shell Recharge.
-- A country snapshot is delivered through one endpoint. EVSE status and ad hoc price are included where available.
-- A token is needed. Request it from support@eco-movement.com.
+- **Endpoint:** `GET https://nap-dk.eco-movement.com/datex2/v1/locations`, found in the NAP dataset's data-flow settings (`genericReferenceUrl`), not on its public page.
+- **Auth:** `Authorization: Bearer <token>`. Without it the answer is `401 unauthorized`. The token came from support@eco-movement.com through a 1Password share link; the link itself is not the endpoint.
+- **Paging:** 1,000 sites per page, next page in a `Link: <...?limit=1000&offset=1000>; rel="next"` header. Denmark was 4 pages, 3,921 sites and 21,489 charge points on 2026-10-26: about 35 MB, 13 seconds.
+- **No conditional requests:** no ETag or Last-Modified, just `Cache-Control: max-age=60`. The app fetches every 10 minutes.
+- **One document per page** holds both the table and the status publication, at the top level (no `payload` wrapper).
+- **Operators:** Clever 3,436 sites, Circle K 139, Q8 93, "Spirii" 87 (these are Shell's stations, also in Spirii's own feed), Allego 54, Eviny 31, Lidl 29, Q-Park 26, IONITY 15, Fastned 7, Mercedes-Benz High-Power Charging 2, Milence 1, Q8H 1.
+- **Prices:** 96% of charge points have one, always a flat `pricePerKWh`, sometimes with a `pricePerMinute` from a given minute. Status updates repeat the price.
+- **Live status** for every charge point: `available`, `charging`, `outOfOrder`, `unknown`, `inoperative`, `blocked`.
+
+### Quirks the parser handles
+
+| What | Eco-Movement | Spirii |
+|---|---|---|
+| Location | `entrance[].locAreaLocation` | `locationReference.locAreaLocation` |
+| Site name | `brand` | `name` |
+| Operator | `energyDistributor` | `operator` |
+| EVSE ID | on each `connector[].externalIdentifier` | on the charge point |
+| Prices | `energyProduct[].aegiElectricEnergy.energyRate[]` | `electricEnergy[].energyRate[]` |
+| VAT | `taxIncluded: false` with `taxRate: 0.25` (a fraction, against the standard) or `25` | `taxIncluded: true` |
+| Currency | DKK, except Mercedes-Benz in **EUR** (converted at the peg rate 7.46038) | DKK |
+
+Status price updates carry no currency; they point to the table's rate through `energyRateReference.idG`, which does. Reading `0.25` as percent would add 0.25% VAT and show Clever at 2.80 kr instead of its real 3.49 kr.
 
 ## Open questions
 
@@ -125,6 +144,6 @@ The parser and its rules are in `TariffParser` and `Tariff`, with tests on a rea
 - [ ] OK and nef Strøm: how to get access. Is it a public URL behind the NAP entry?
 - [ ] E.ON Drive: will they grant access for a non-commercial app?
 - [ ] Tesla Superchargers: no Danish NAP dataset found yet.
-- [ ] Duplicates: Shell Recharge appears in both the Spirii and Eco-Movement feeds. Merge on EVSE ID and decide which source wins.
+- [x] Duplicates: Shell's stations are in both feeds with different EVSE IDs. They're merged by name and distance, Spirii wins ([ADR 0006](decisions/0006-merging-feeds.md)).
 - [x] Price model: start fees and per-minute fees are listed under each charge point in the station panel.
 - [x] Show the time window of per-minute fees.

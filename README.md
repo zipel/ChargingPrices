@@ -4,7 +4,7 @@ A map of public EV charging stations in Denmark that shows what each one costs p
 
 ![CI](https://github.com/zipel/ChargingPrices/actions/workflows/ci.yml/badge.svg)
 
-> **Status:** phase 1 works locally and in Docker. Live prices for about 2,300 sites from 21 operators, refreshed every 2 minutes. Not online yet. See the [roadmap](#roadmap).
+> **Status:** works locally and in Docker. Live prices and status for about 6,100 sites from 34 operators, including Clever, Circle K, Q8, IONITY, Spirii, EDF and PowerGo. Not online yet. See the [roadmap](#roadmap).
 
 ![The map of Copenhagen with price labels, the cheapest stations listed on the left, and a station's price curve on the right](docs/screenshot.png)
 
@@ -43,17 +43,25 @@ Prices are each operator's ad hoc price: pay as you go, VAT included. Subscripti
 
 ## Data sources
 
-Only feeds that are open without a login or an API key are used for now.
-
 | Source | Operators covered | Access | Status |
 |---|---|---|---|
-| Spirii AFIR API (DATEX II) | 21 operators, including Spirii, EDF, PowerGo, Aura, Verdo, Looad, Shell Recharge, DEAS, Region H, By & Havn | Public, no key | **In use** |
-| Monta Public API (DATEX II) | Monta, Norlys, Uno-X, NRGi, Stella Energy and others | Free API credentials | Planned |
-| Eco-Movement (DATEX II) | Clever, Lidl, Circle K, IONITY, Allego, Fastned, Q8, Milence and others | Token on request | Planned |
-| OK (DATEX II) | OK | National Access Point login | Planned |
+| Spirii AFIR API (DATEX II) | 21 operators, including Spirii, EDF, PowerGo, Aura, Verdo, Looad, Shell Recharge, DEAS, Region H, By & Havn (2,329 sites) | Public, no key | **In use** |
+| Eco-Movement (DATEX II) | Clever, Circle K, Q8, Allego, Eviny, Lidl, Q-Park, IONITY, Fastned, Mercedes-Benz, Milence (3,921 sites) | Token on request | **In use** when a token is set |
+| Monta Public API (DATEX II) | Monta, Norlys, Uno-X, NRGi, Stella Energy and others | Free API credentials | Not now |
+| OK (DATEX II) | OK | National Access Point login | Not now |
 | E.ON Drive (DATEX II) | E.ON | Agreement needed | Unclear |
 
-Details, endpoints and findings are in [docs/data-sources.md](docs/data-sources.md).
+Where two feeds have the same site (Shell's stations are in both), the Spirii one is kept ([why](docs/decisions/0006-merging-feeds.md)). Details, endpoints and quirks of each feed are in [docs/data-sources.md](docs/data-sources.md).
+
+### Turning on the Eco-Movement feed
+
+The Eco-Movement feed needs a token, which you request from support@eco-movement.com. Put it in a file called `.env` in the repository folder, next to `README.md`:
+
+```
+ECO_MOVEMENT_TOKEN=your-token-here
+```
+
+`.env` is git-ignored, so the token never reaches GitHub; `.env.example` shows the format. Without a token, the app runs on Spirii's feed alone. In Docker, pass it as an environment variable instead (`docker run -e ECO_MOVEMENT_TOKEN=... -p 8080:8080 chargingprices`).
 
 ## Running it locally
 
@@ -124,15 +132,15 @@ The back-end tests run on a real three-site sample of the Spirii feed and never 
 | `GET /api/sites/{id}` | One site: charge points, status, fees and the price curve |
 | `GET /api/meta` | Operators, data sources and when the data was last refreshed |
 | `GET /api/places?q=...` | Towns and addresses in Denmark, via OpenStreetMap's Nominatim ([why a proxy](docs/decisions/0005-place-search.md)) |
-| `GET /actuator/health` | UP while the feed data is fresh, DOWN when it's older than 10 minutes |
+| `GET /actuator/health` | UP while every switched-on feed is fresh, DOWN when one hasn't refreshed for 25 minutes |
 
 ## Architecture
 
 ```
-Spirii AFIR feed (DATEX II, one request per operator, ETag caching)
-        |  every 2 minutes: statuses and prices; every 6 hours: sites
-        v
-DatexParser  -->  Site / ChargePoint / Tariff  -->  SiteStore (in memory)
+Spirii AFIR feed (DATEX II, one request per operator, ETag caching)       Eco-Movement feed (DATEX II, 4 pages, Bearer token)
+        |  every 2 minutes: statuses and prices; every 6 hours: sites             |  every 10 minutes: sites, statuses and prices
+        v                                                                         v
+DatexParser  -->  Site / ChargePoint / Tariff  -->  SiteStore (in memory, feeds merged, duplicates dropped)
                                                         |
                     REST API (Spring Boot), prices worked out per request      Nominatim (place search,
                                                         |                       cached, 1 request/second)
@@ -152,7 +160,7 @@ All decisions are in [docs/decisions](docs/decisions).
 ## Roadmap
 
 1. ~~**One feed end to end.** Fetch the Spirii feed, keep it fresh, serve it through the API and show it on the map.~~ Done, with search, operator comparison, Danish and a Docker image on top.
-2. **More operators.** Add Monta, Eco-Movement and OK, plus E.ON if access is granted. Merge stations that appear in more than one feed, using their EVSE IDs.
+2. **More operators.** ~~Add Eco-Movement and merge stations that appear in more than one feed.~~ Done. Monta (Norlys, Uno-X, NRGi), OK and E.ON are left; each needs an account or an agreement.
 3. **Online and over time.** Put a public demo online, keep price history in PostgreSQL and show "best time to charge today".
 4. **Later.** An assistant for questions like "cheapest charge on my way to Aarhus before 18:00", and a phone app (PWA first).
 
@@ -162,7 +170,7 @@ Built with [Claude Code](https://claude.com/claude-code) as a coding assistant. 
 
 ## Data, attribution and disclaimer
 
-The charging data belongs to the operators and is published under AFIR. Map data and place search © OpenStreetMap contributors, tiles by OpenFreeMap and OpenMapTiles. ChargingPrices isn't affiliated with any operator. Prices can change at short notice, so always check the price at the charger or in the operator's app before you charge.
+The charging data belongs to the operators and is published under AFIR. Eco-Movement's data is used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and credited in the app. Map data and place search © OpenStreetMap contributors, tiles by OpenFreeMap and OpenMapTiles. ChargingPrices isn't affiliated with any operator. Prices can change at short notice, so always check the price at the charger or in the operator's app before you charge.
 
 ## Licence
 

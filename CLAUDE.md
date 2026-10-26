@@ -29,10 +29,11 @@ Java 25, Spring Boot 4.1, Gradle (Kotlin DSL) · in-memory store for phase 1 (Po
 ```
 backend/              Spring Boot app
   feed/spirii/        fetches Spirii's public AFIR feed per operator (cpoId), with ETags
+  feed/ecomovement/   fetches Eco-Movement's feed (Bearer token from .env), following Link: rel="next"
   feed/datex/         maps DATEX II JSON to the domain model
   feed/               FeedStatus and the feed health check for /actuator/health
   domain/             Site, ChargePoint, Tariff (price at a given local time), SpeedClass, SiteAccess
-  store/              SiteStore: the latest snapshot, in memory
+  store/              SiteStore: the latest snapshot, in memory; SiteDeduplicator merges overlapping feeds
   places/             place search through Nominatim (cache, 1 request/second)
   api/                REST controller and the JSON views
 web/                  React app
@@ -63,6 +64,9 @@ The UI needs the API running. Vite forwards `/api` to `localhost:8080`.
 - **Price** = the ad hoc price, VAT included, in DKK. See the Javadoc on `Tariff` and `TariffParser` for how the time windows work.
 - **Spirii's feed** returns at most 1,000 sites per request, so it's fetched one operator (`cpoId`) at a time. The list is in `application.yml`.
 - **Dynamic prices are published about a day ahead.** The price curve stops where the published slots end; it never shows the fallback price as a forecast.
+- **Several feeds, one map.** Feeds are merged in `SiteStore.SOURCE_PRIORITY` order (Spirii first). A later site is dropped if it shares an EVSE ID or has the same name within 50 m (ADR 0006).
+- **Prices are always kroner including VAT.** `TariffParser` adds VAT when `taxIncluded` is false, reads `taxRate` ≤ 1 as a fraction, and converts EUR at `Denmark.EUR_TO_DKK`.
+- **Secrets:** tokens live in the git-ignored `.env` in the repository folder, loaded by `spring.config.import`. Never print, log or commit them. Tests that start Spring set `feeds.eco-movement.token=` so a local `.env` can't make them call the real feed.
 - **UI texts:** every visible string goes in both `web/src/i18n/en.ts` and `da.ts`. The `Translations` type makes the build fail if Danish is missing a key, and `t('...')` keys are checked too.
 
 ## Gotchas (learned the hard way)
@@ -73,6 +77,8 @@ The UI needs the API running. Vite forwards `/api` to `localhost:8080`.
 - **Test slices moved too:** `@WebMvcTest` is in `org.springframework.boot.webmvc.test.autoconfigure`, and `MockMvcTester` gives AssertJ-style checks.
 - **Spirii always gzips**, even without `Accept-Encoding`. `SpiriiClient` checks the gzip magic bytes.
 - **MapLibre 6 needs its worker URL set** (`setWorkerUrl` with a `?url` import in `MapView.tsx`), or the map stays blank in production builds.
+- **Feeds fill DATEX II differently.** Check where each field sits before assuming it's broken; see the quirks table in `docs/data-sources.md`.
+- **Never use `path` as a variable name in zsh scripts.** It's tied to `PATH`, and assigning it breaks every command in that shell.
 - **Spring waits for a running `@Scheduled` task when the app shuts down.** A feed refresh takes about a minute, so `SpiriiRefresher` listens for `ContextClosedEvent` and stops at the next operator.
 - **Gradle runs the app in its daemon's process group, not in gradlew's.** `scripts/start.mjs` can only signal gradlew; the daemon then stops the app a few seconds later. `--no-daemon` doesn't help, because Gradle still forks a one-off daemon.
 - **MapLibre's CSS sets `.maplibregl-map { position: relative }`.** The full-screen rule for the map container must be more specific (`.app > .map`), or the map gets zero height.
